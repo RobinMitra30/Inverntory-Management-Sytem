@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'; }
+    function isManager() { return isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['MANAGER', 'ADMIN']); }
+    function isStore() { return isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STORE', 'MANAGER', 'ADMIN']); }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+    match /products/{productId} { allow read, write: if true; }
+    match /projects/{projectId} { allow read, write: if true; }
+    match /vendors/{vendorId} { allow read, write: if true; }
+    match /purchaseRequisitions/{prId} { allow read: if isSignedIn(); allow write: if isStore(); }
+    match /purchaseOrders/{poId} { allow read: if isSignedIn(); allow write: if isManager(); }
+    match /grns/{grnId} { allow read: if isSignedIn(); allow write: if isStore(); }
+    match /stocks/{stockId} { allow read, write: if true; }
+    match /stockMovements/{movementId} { allow read, write: if true; }
+
+    match /siteTasks/{taskId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); 
+    }
+    match /dailyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /attendance/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}

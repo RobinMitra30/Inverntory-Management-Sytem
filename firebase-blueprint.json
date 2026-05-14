@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users with roles and project assignments.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "MANAGER", "STORE", "QC", "ACCOUNTS"] },
+        "assignedProjects": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Standardized product/material catalog.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "unit": { "type": "string" },
+        "minStockLevel": { "type": "number" },
+        "description": { "type": "string" }
+      }
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Construction project site details.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "ON_HOLD", "COMPLETED"] },
+        "budget": { "type": "number" },
+        "managerId": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "progress": { "type": "number" }
+      }
+    },
+    "Vendor": {
+      "title": "Vendor",
+      "description": "Registered material suppliers.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "category": { "type": "string" }
+      }
+    },
+    "SiteTask": {
+      "title": "SiteTask",
+      "description": "Specific actionable items on site.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "projectId": { "type": "string" },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "status": { "type": "string", "enum": ["TODO", "IN_PROGRESS", "QC_PENDING", "COMPLETED"] },
+        "assignedTo": { "type": "string" },
+        "dueDate": { "type": "string" }
+      }
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "description": "Site daily progress report.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "date": { "type": "string" },
+        "supervisorId": { "type": "string" },
+        "stockDetails": { "type": "array", "items": { "type": "object" } },
+        "workDetails": { "type": "array", "items": { "type": "object" } },
+        "workTimelines": { "type": "array", "items": { "type": "object" } },
+        "workerDetails": { "type": "array", "items": { "type": "object" } },
+        "issues": { "type": "string" },
+        "photoUrls": { "type": "array", "items": { "type": "string" } },
+        "signature": { "type": "string" },
+        "status": { "type": "string", "enum": ["DRAFT", "SUBMITTED", "APPROVED"] },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Site workforce attendance records.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "date": { "type": "string" },
+        "workersCount": { "type": "number" },
+        "notes": { "type": "string" }
+      }
+    },
+    "PurchaseRequisition": {
+      "title": "PurchaseRequisition",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "items": { "type": "array" },
+        "status": { "type": "string" },
+        "createdBy": { "type": "string" }
+      }
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "items": { "type": "array" },
+        "status": { "type": "string" }
+      }
+    },
+    "GRN": {
+      "title": "GRN",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "poId": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "Stock": {
+      "title": "Stock",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "productId": { "type": "string" },
+        "quantity": { "type": "number" }
+      }
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "productId": { "type": "string" },
+        "type": { "type": "string" },
+        "quantity": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles." },
+    "/projects/{projectId}": { "schema": "Project", "description": "Project data." },
+    "/vendors/{vendorId}": { "schema": "Vendor", "description": "Vendor directory." },
+    "/products/{productId}": { "schema": "Product", "description": "Product catalog." },
+    "/siteTasks/{taskId}": { "schema": "SiteTask", "description": "Site tasks." },
+    "/dailyReports/{reportId}": { "schema": "DailyReport", "description": "Daily progress reports." },
+    "/attendance/{recordId}": { "schema": "Attendance", "description": "Attendance records." },
+    "/purchaseRequisitions/{prId}": { "schema": "PurchaseRequisition", "description": "Purchase requisitions." },
+    "/purchaseOrders/{poId}": { "schema": "PurchaseOrder", "description": "Purchase orders." },
+    "/grns/{grnId}": { "schema": "GRN", "description": "Goods receipt notes." },
+    "/stocks/{stockId}": { "schema": "Stock", "description": "Real-time stock levels." },
+    "/stockMovements/{movementId}": { "schema": "StockMovement", "description": "Audit trail for stock." }
+  }
+}
