@@ -41,6 +41,15 @@ export default function InventoryPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [search, setSearch] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Filter projects based on user role
+  const filteredProjects = profile?.role === UserRole.SITE_SUPERVISOR 
+    ? projects.filter(p => profile.assignedProjects.includes(p.id)) 
+    : projects;
+
+  // Get unique categories
+  const categories = Array.from(new Set(products.map(p => p.category))).sort();
 
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [isIssuing, setIsIssuing] = useState(false);
@@ -62,11 +71,19 @@ export default function InventoryPage() {
     product: products.find(p => p.id === stock.productId),
     project: projects.find(p => p.id === stock.projectId)
   })).filter(s => {
-    const matchesSearch = s.product?.name.toLowerCase().includes(search.toLowerCase()) || 
-                          s.project?.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = search === '' || 
+                          s.product?.name.toLowerCase().includes(search.toLowerCase()) || 
+                          s.product?.sku.toLowerCase().includes(search.toLowerCase());
     const matchesProject = selectedProjectId === 'all' || s.projectId === selectedProjectId;
-    return matchesSearch && matchesProject;
+    const matchesCategory = selectedCategory === 'all' || s.product?.category === selectedCategory;
+    return matchesSearch && matchesProject && matchesCategory;
   });
+
+  const clearFilters = () => {
+    setSearch('');
+    setSelectedProjectId('all');
+    setSelectedCategory('all');
+  };
 
   const canAdjust = profile?.role === UserRole.ADMIN || profile?.role === UserRole.PROJECT_MANAGER || profile?.role === UserRole.STORE_KEEPER;
 
@@ -185,26 +202,37 @@ export default function InventoryPage() {
            <div className="relative w-full md:w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input 
-                 placeholder="Search project or material..." 
+                 placeholder="Search by name or code..." 
                  className="pl-9 h-9" 
                  value={search}
                  onChange={e => setSearch(e.target.value)}
               />
            </div>
            
-           <div className="flex items-center gap-2 w-full md:w-64">
-              <span className="text-xs font-mono text-slate-400 uppercase shrink-0">Filter:</span>
+           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-9 w-[180px]">
                   <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map(p => (
+                  {filteredProjects.map(p => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="h-9 w-[180px]">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={clearFilters} variant="ghost" className="h-9 text-xs">Clear</Button>
            </div>
         </div>
         <Table>

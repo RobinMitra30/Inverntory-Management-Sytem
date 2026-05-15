@@ -179,6 +179,7 @@ function DownloadReportDialog() {
                 </div>
                 <Checkbox />
               </div>
+              {/* Photos export disabled
               <div className="flex items-start justify-between py-4">
                 <div className="space-y-0.5">
                   <p className="text-sm font-bold text-slate-900">Photos</p>
@@ -186,6 +187,7 @@ function DownloadReportDialog() {
                 </div>
                 <Checkbox />
               </div>
+              */}
               <div className="flex items-start justify-between py-4">
                 <div className="space-y-0.5">
                   <p className="text-sm font-bold text-slate-900">Issues</p>
@@ -300,7 +302,7 @@ export default function ProjectDetailsPage() {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 sm:gap-0">
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Dashboard</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/projects/${id}/daily-report`)}>Daily Report</Button>
+          <Button variant="outline" onClick={() => navigate(`/projects/${id}/daily-report`)}>Progress (DPR)</Button>
           <DownloadReportDialog />
           <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => navigate(`/projects/${id}/settings`)}>Project Settings</Button>
         </div>

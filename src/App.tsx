@@ -7,7 +7,6 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import DataSeeder from './components/DataSeeder';
 
 import Dashboard from './pages/Dashboard';
-import AttendancePage from './pages/AttendancePage';
 import ProgressPage from './pages/ProgressPage';
 import TasksPage from './pages/TasksPage';
 import ProductsPage from './pages/ProductsPage';
@@ -37,7 +36,6 @@ export default function App() {
           <DashboardLayout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/progress" element={<ProgressPage />} />
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/products" element={<ProductsPage />} />

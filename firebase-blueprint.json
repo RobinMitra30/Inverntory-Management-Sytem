@@ -85,17 +85,6 @@
         "createdAt": { "type": "string" }
       }
     },
-    "Attendance": {
-      "title": "Attendance",
-      "description": "Site workforce attendance records.",
-      "type": "object",
-      "properties": {
-        "projectId": { "type": "string" },
-        "date": { "type": "string" },
-        "workersCount": { "type": "number" },
-        "notes": { "type": "string" }
-      }
-    },
     "PurchaseRequisition": {
       "title": "PurchaseRequisition",
       "type": "object",
@@ -153,7 +142,6 @@
     "/products/{productId}": { "schema": "Product", "description": "Product catalog." },
     "/siteTasks/{taskId}": { "schema": "SiteTask", "description": "Site tasks." },
     "/dailyReports/{reportId}": { "schema": "DailyReport", "description": "Daily progress reports." },
-    "/attendance/{recordId}": { "schema": "Attendance", "description": "Attendance records." },
     "/purchaseRequisitions/{prId}": { "schema": "PurchaseRequisition", "description": "Purchase requisitions." },
     "/purchaseOrders/{poId}": { "schema": "PurchaseOrder", "description": "Purchase orders." },
     "/grns/{grnId}": { "schema": "GRN", "description": "Goods receipt notes." },

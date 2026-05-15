@@ -111,6 +111,7 @@ export default function ProgressPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                 {/* Photo upload features disabled as requested
                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 cursor-pointer group transition-colors">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50 transition-colors">
                         <Camera className="w-5 h-5" />
@@ -123,6 +124,7 @@ export default function ProgressPage() {
                     </div>
                     <span className="text-sm font-medium text-slate-500">Upload Media</span>
                  </div>
+                 */}
               </div>
             </div>
             <DialogFooter>
@@ -166,6 +168,7 @@ export default function ProgressPage() {
                                )}
                             </div>
 
+                            {/* Photos disabled 
                             {report.photos.length > 0 && (
                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
                                   {report.photos.map((photo, i) => (
@@ -179,6 +182,7 @@ export default function ProgressPage() {
                                   ))}
                                </div>
                             )}
+                            */}
                          </CardContent>
                          <CardFooter className="p-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
                             <div className="flex items-center gap-2">
@@ -238,10 +242,12 @@ export default function ProgressPage() {
                     Monthly Compilation
                     <ChevronRight className="w-3 h-3" />
                  </Button>
+                 {/*
                  <Button variant="ghost" className="w-full justify-between text-xs h-9 text-slate-600">
                     Photo Archive
                     <ChevronRight className="w-3 h-3" />
                  </Button>
+                 */}
                  <Button variant="ghost" className="w-full justify-between text-xs h-9 text-slate-600">
                     Material Log Sync
                     <ChevronRight className="w-3 h-3" />

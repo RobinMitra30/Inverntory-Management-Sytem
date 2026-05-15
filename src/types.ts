@@ -151,18 +151,6 @@ export interface StockMovement {
   createdAt: string;
 }
 
-export interface Attendance {
-  id: string;
-  projectId: string;
-  date: string;
-  workerName: string;
-  workerType: 'LABOR' | 'SUPERVISOR' | 'CONTRACTOR';
-  status: 'PRESENT' | 'ABSENT' | 'HALF_DAY';
-  shift: 'DAY' | 'NIGHT';
-  remarks?: string;
-  markedBy: string;
-}
-
 export interface StockDetail {
   productId: string;
   receivedQuantity: number;

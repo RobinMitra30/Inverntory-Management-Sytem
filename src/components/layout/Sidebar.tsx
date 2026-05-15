@@ -25,8 +25,7 @@ import { UserRole } from '@/types';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR, UserRole.STORE_KEEPER, UserRole.QUALITY_ENGINEER, UserRole.ACCOUNTANT] },
-  { name: 'Attendance', href: '/attendance', icon: Users, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR] },
-  { name: 'Progress (DPR)', href: '/progress', icon: FileSpreadsheet, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR] },
+  { name: 'Progress (DPR)', href: '/all-daily-reports', icon: FileSpreadsheet, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR] },
   { name: 'Site Tasks', href: '/tasks', icon: CheckSquare, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR, UserRole.QUALITY_ENGINEER] },
   { name: 'Projects', href: '/projects', icon: Briefcase, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR] },
   { name: 'Products', href: '/products', icon: Package, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.STORE_KEEPER] },
@@ -35,7 +34,6 @@ const navigation = [
   { name: 'Orders', href: '/orders', icon: ShoppingCart, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.ACCOUNTANT] },
   { name: 'GRNs', href: '/grns', icon: FileCheck, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.STORE_KEEPER, UserRole.QUALITY_ENGINEER] },
   { name: 'Vendors', href: '/vendors', icon: Truck, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.ACCOUNTANT] },
-  { name: 'Daily Reports', href: '/all-daily-reports', icon: FileSpreadsheet, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_SUPERVISOR] },
   { name: 'Team Management', href: '/users', icon: Users, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER] },
   { name: 'Reports', href: '/reports', icon: BarChart3, roles: [UserRole.ADMIN, UserRole.PROJECT_MANAGER, UserRole.ACCOUNTANT] },
   { name: 'Admin', href: '/admin', icon: Settings, roles: [UserRole.ADMIN] },
@@ -63,7 +61,7 @@ export function Sidebar() {
       <nav className="flex-1 px-4 py-6 space-y-1.5">
         {filteredNavigation.map((item) => (
           <NavLink
-            key={item.name}
+            key={item.href + item.name}
             to={item.href}
             className={({ isActive }) =>
               cn(

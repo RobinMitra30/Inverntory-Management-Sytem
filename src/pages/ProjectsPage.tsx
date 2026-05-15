@@ -41,6 +41,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   
   const [newProject, setNewProject] = useState<Omit<Project, 'id'>>({
     name: '',
@@ -101,7 +102,9 @@ export default function ProjectsPage() {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          p.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDemo = showDemo || !p.isDemo;
-    return matchesSearch && matchesDemo;
+    const matchesStatus = selectedStatus === 'all' || p.status === selectedStatus;
+    
+    return matchesSearch && matchesDemo && matchesStatus;
   });
 
   return (
@@ -205,11 +208,19 @@ export default function ProjectsPage() {
             />
           </div>
           <div className="flex gap-2 w-full md:w-auto">
-             <Button variant="outline" className="flex-1 md:flex-none h-11 px-4 gap-2 text-slate-600 border-slate-200 rounded-xl hover:bg-slate-50">
-                Project Status <ChevronDown className="w-4 h-4 opacity-50" />
-             </Button>
-             <Button variant="outline" className="flex-1 md:flex-none h-11 px-6 gap-2 text-slate-600 border-slate-200 rounded-xl hover:bg-slate-50">
-               <Filter className="w-4 h-4" /> Filter
+             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+               <SelectTrigger className="w-[180px] h-11 rounded-xl">
+                 <SelectValue placeholder="Status" />
+               </SelectTrigger>
+               <SelectContent className="rounded-xl">
+                 <SelectItem value="all">All Status</SelectItem>
+                 <SelectItem value="ACTIVE">Active</SelectItem>
+                 <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                 <SelectItem value="COMPLETED">Completed</SelectItem>
+               </SelectContent>
+             </Select>
+             <Button variant="outline" className="flex-1 md:flex-none h-11 px-6 gap-2 text-slate-600 border-slate-200 rounded-xl hover:bg-slate-50" onClick={() => {setSearchTerm(''); setSelectedStatus('all')}}>
+               <Filter className="w-4 h-4" /> Reset
              </Button>
           </div>
         </div>

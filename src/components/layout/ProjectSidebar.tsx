@@ -43,7 +43,7 @@ export function ProjectSidebar() {
       title: 'PROGRESS & QUALITY',
       items: [
         { name: 'Tasks', href: `/projects/${id}/tasks`, icon: CheckSquare },
-        { name: 'Daily Reports', href: `/projects/${id}/daily-reports-list`, icon: FileSpreadsheet },
+        { name: 'Progress (DPR)', href: `/projects/${id}/daily-reports-list`, icon: FileSpreadsheet },
         { name: 'Issues', href: `/projects/${id}/issues`, icon: ShieldAlert },
       ]
     },

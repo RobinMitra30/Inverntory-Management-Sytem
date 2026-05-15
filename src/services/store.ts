@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { handleFirestoreError } from '../lib/error-handler';
-import { OperationType, Product, Project, Vendor, Stock, PurchaseRequisition, PurchaseOrder, GRN, GRNLineItem, Attendance, DailyReport, SiteTask, StockMovement, MovementType, UserProfile, UserRole } from '../types';
+import { OperationType, Product, Project, Vendor, Stock, PurchaseRequisition, PurchaseOrder, GRN, GRNLineItem, DailyReport, SiteTask, StockMovement, MovementType, UserProfile, UserRole } from '../types';
 
 export const ProductService = {
   subscribe: (callback: (products: Product[]) => void) => {
@@ -40,21 +40,6 @@ export const ProductService = {
       await updateDoc(doc(db, 'products', id), product);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `products/${id}`);
-    }
-  }
-};
-
-export const AttendanceService = {
-  subscribe: (callback: (attendance: Attendance[]) => void) => {
-    return onSnapshot(collection(db, 'attendance'), (snapshot) => {
-      callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Attendance)));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, 'attendance'));
-  },
-  add: async (entry: Omit<Attendance, 'id'>) => {
-    try {
-      await addDoc(collection(db, 'attendance'), entry);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'attendance');
     }
   }
 };

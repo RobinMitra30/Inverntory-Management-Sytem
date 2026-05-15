@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
 // Use Firebase Client SDK for the backend since we don't have Admin SDK credentials.
 import { initializeApp, getApps } from "firebase/app";
@@ -66,7 +66,7 @@ async function startServer() {
     try {
       // Create user using Email/Password auth 
       // Mapping username to a fake system email
-      const email = `${username}@system.local`;
+      const email = `${username.trim().toLowerCase()}@system.local`;
       
       const userCredential = await createUserWithEmailAndPassword(adminAuth, email, password);
       
@@ -105,6 +105,7 @@ async function startServer() {
   });
 
   app.post("/api/admin/users/:uid/reset-password", async (req, res) => {
+    console.log("Hit reset password endpoint for UID:", req.params.uid);
     const isAdminReady = initializeAdminSdk();
     
     if (isAdminReady) {

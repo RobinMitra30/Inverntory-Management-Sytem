@@ -19,8 +19,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ProgressService, ProjectService } from '@/services/store';
-import { DailyReport, Project, UserRole } from '@/types';
+import { ProgressService, ProjectService, ProductService } from '@/services/store';
+import { DailyReport, Project, UserRole, Product } from '@/types';
 import { useAuth } from '@/lib/auth-context';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -35,10 +35,12 @@ export default function DailyReportDetailsPage() {
   
   const [report, setReport] = useState<DailyReport | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let unsubReport = () => {};
+    let unsubProducts = ProductService.subscribe(setProducts);
     if (reportId) {
       unsubReport = ProgressService.subscribe(reports => {
         const found = reports.find(r => r.id === reportId);
@@ -52,7 +54,10 @@ export default function DailyReportDetailsPage() {
         setIsLoading(false);
       });
     }
-    return () => unsubReport();
+    return () => {
+      unsubReport();
+      unsubProducts();
+    }
   }, [reportId]);
 
   useEffect(() => {
@@ -268,14 +273,17 @@ export default function DailyReportDetailsPage() {
                  </tr>
               </thead>
               <tbody>
-                 {report.stockDetails?.filter(s => s.receivedQuantity > 0 || s.usedQuantity > 0).map((stock, i) => (
+                 {report.stockDetails?.filter(s => s.receivedQuantity > 0 || s.usedQuantity > 0).map((stock, i) => {
+                    const product = products.find(p => p.id === stock.productId);
+                    return (
                     <tr key={i} className="hover:bg-slate-50 transition-colors">
-                       <td className="border p-2 font-medium">{stock.productId || 'Unknown Item'}</td>
+                       <td className="border p-2 font-medium">{product?.name || stock.productId}</td>
                        <td className="border p-2 text-right font-mono">{stock.receivedQuantity}</td>
                        <td className="border p-2 text-right font-mono text-red-600">-{stock.usedQuantity}</td>
                        <td className="border p-2 text-right font-bold font-mono">{stock.remainingBalance}</td>
                     </tr>
-                 )) || (
+                    );
+                 }) || (
                    <tr>
                      <td colSpan={4} className="border p-4 text-center italic text-slate-400">No stock movements reported today</td>
                    </tr>
@@ -394,7 +402,7 @@ export default function DailyReportDetailsPage() {
            </div>
         </div>
 
-        {/* Section: Photos */}
+        {/* Section: Photos disabled
         {report.photoUrls && report.photoUrls.length > 0 && (
            <div className="mb-8 print:break-inside-avoid">
               <div className="bg-slate-900 text-white p-2 px-4 flex items-center gap-2 mb-4">
@@ -414,6 +422,7 @@ export default function DailyReportDetailsPage() {
               </div>
            </div>
         )}
+        */}
 
         {/* Section: Signature */}
         <div className="mt-16 flex justify-end print:break-inside-avoid">

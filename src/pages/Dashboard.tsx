@@ -12,7 +12,6 @@ import {
   HardHat,
   Clock,
   Camera,
-  Plus,
   Shield
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,19 +40,15 @@ export default function Dashboard() {
                </Button>
              </NavLink>
            )}
+           {/*
            <NavLink to="/progress">
              <Button variant="outline" className="h-11 px-6 gap-2 border-slate-200 text-slate-600 hover:text-primary hover:border-primary transition-all rounded-xl shadow-sm">
                <Camera className="w-4 h-4 text-primary" />
                Site Photos
              </Button>
            </NavLink>
-           <NavLink to="/attendance">
-             <Button className="h-11 px-6 bg-primary hover:bg-primary/90 gap-2 rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-95">
-               <Plus className="w-4 h-4" />
-               Mark Attendance
-             </Button>
-           </NavLink>
-        </div>
+           */}
+         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

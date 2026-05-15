@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     // Map username to system email
-    const email = `${username}@system.local`;
+    const email = `${username.trim().toLowerCase()}@system.local`;
     await signInWithEmailAndPassword(auth, email, password);
   };
 

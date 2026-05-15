@@ -45,10 +45,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     setLoginError('');
     setIsLoggingIn(true);
     try {
-      if (!username || !password) {
+      if (!username.trim() || !password) {
         throw new Error("Please enter both username and password");
       }
-      await login(username, password);
+      await login(username.trim(), password);
     } catch (err: any) {
       setLoginError("Invalid Username or Password");
     } finally {
