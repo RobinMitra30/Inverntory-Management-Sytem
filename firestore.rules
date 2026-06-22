@@ -6,23 +6,49 @@ service cloud.firestore {
     }
 
     function isSignedIn() { return request.auth != null; }
-    function isAdmin() { return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'; }
-    function isManager() { return isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['MANAGER', 'ADMIN']); }
-    function isStore() { return isSignedIn() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['STORE', 'MANAGER', 'ADMIN']); }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function hasRole(role) { 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             getUserData().role == role; 
+    }
+    function isAdmin() { return hasRole('ADMIN'); }
+    function isManager() { 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             (getUserData().role in ['PROJECT_MANAGER', 'ADMIN']); 
+    }
+    function isStore() { 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             (getUserData().role in ['STORE_KEEPER', 'PROJECT_MANAGER', 'ADMIN']); 
+    }
 
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
+      allow list: if isSignedIn();
       allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
-    match /products/{productId} { allow read, write: if true; }
-    match /projects/{projectId} { allow read, write: if true; }
-    match /vendors/{vendorId} { allow read, write: if true; }
-    match /purchaseRequisitions/{prId} { allow read: if isSignedIn(); allow write: if isStore(); }
-    match /purchaseOrders/{poId} { allow read: if isSignedIn(); allow write: if isManager(); }
-    match /grns/{grnId} { allow read: if isSignedIn(); allow write: if isStore(); }
-    match /stocks/{stockId} { allow read, write: if true; }
-    match /stockMovements/{movementId} { allow read, write: if true; }
+    match /products/{productId} { allow read: if isSignedIn(); allow write: if isManager(); allow delete: if isAdmin(); }
+    match /projects/{projectId} { allow read: if isSignedIn(); allow write: if isManager(); allow delete: if isAdmin(); }
+    match /vendors/{vendorId} { allow read: if isSignedIn(); allow write: if isManager(); allow delete: if isAdmin(); }
+    match /purchaseRequisitions/{prId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /purchaseOrders/{poId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /grns/{grnId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /projectReturns/{returnId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /stocks/{stockId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /stockMovements/{movementId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if false; 
+      allow delete: if isAdmin();
+    }
+    match /returnsToStore/{returnId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /returnsToVendor/{rtvId} { allow read: if isSignedIn(); allow write: if isSignedIn(); allow delete: if isAdmin(); }
+    match /catalogImports/{importId} { 
+      allow read: if isSignedIn(); 
+      allow create: if isSignedIn(); 
+    }
 
     match /siteTasks/{taskId} {
       allow read: if isSignedIn();
@@ -35,6 +61,56 @@ service cloud.firestore {
     match /attendance/{recordId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();
+    }
+    match /projectIssues/{issueId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /materialRequirements/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /materialRequisitions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /demoRequests/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /auditLogs/{logId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn();
+    }
+    match /materialPriceHistory/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /vendorPriceAnalytics/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /procurementAlerts/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /procurementApprovals/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /priceComparisonLogs/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /savingsReports/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /notifications/{notificationId} {
+      allow create: if isSignedIn();
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
     }
   }
 }

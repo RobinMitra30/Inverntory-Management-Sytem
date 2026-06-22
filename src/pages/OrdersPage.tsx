@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { POService, ProjectService, VendorService, ProductService } from '@/services/store';
-import { PurchaseOrder, Project, Vendor, Product, POLineItem } from '@/types';
+import { POService, ProjectService, VendorService, ProductService, MaterialPriceHistoryService } from '@/services/store';
+import { PurchaseOrder, Project, Vendor, Product, POLineItem, UserRole } from '@/types';
+import { useAuth } from '@/lib/auth-context';
+import { db } from '@/lib/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { WorkflowProgress } from '@/components/WorkflowProgress';
@@ -29,20 +32,50 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ShoppingCart, FilePlus, Filter, Plus, Trash2 } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { ShoppingCart, FilePlus, Filter, Plus, Trash2, Store, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { MaterialSelector } from '@/components/MaterialSelector';
 import { VendorSelector } from '@/components/VendorSelector';
+import { PriceComparisonBadge } from '@/components/PriceComparisonBadge';
+
+import { VendorIntelligenceDialog } from '@/components/VendorIntelligenceDialog';
 
 export default function OrdersPage() {
   const { id: projectIdParam } = useParams<{ id: string }>();
+  const { profile } = useAuth();
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
+
+  const getProjectDisplayName = (projectId: string, proj?: Project): string => {
+    const isRawId = (str?: string) => {
+      if (!str) return true;
+      if (str.includes(' ')) return false;
+      return /^[a-zA-Z0-9_-]{5,30}$/.test(str);
+    };
+    if (proj?.name && !isRawId(proj.name)) {
+      return proj.name;
+    }
+    const defaultMappings: Record<string, string> = {
+      'pMUUAjtOuJ8BjHiHoBgY': 'Grand Horizon Mall',
+      'demo-project': 'Grand Horizon Mall',
+    };
+    if (defaultMappings[projectId]) return defaultMappings[projectId];
+    if (proj?.name && isRawId(proj.name)) {
+      return `Horizon Project (${proj.name.substring(0, 6).toUpperCase()})`;
+    }
+    if (/^[a-zA-Z0-9_-]{5,30}$/.test(projectId)) {
+      return `Horizon Project (${projectId.substring(0, 6).toUpperCase()})`;
+    }
+    return proj?.name || projectId || 'Grand Horizon Mall';
+  };
 
   // New PO State
   const [projectId, setProjectId] = useState('');
@@ -67,15 +100,62 @@ export default function OrdersPage() {
     return () => { isMounted = false; };
   }, [projectIdParam]);
 
+  const isManagerOrAdmin = profile?.role === UserRole.ADMIN || profile?.role === UserRole.PROJECT_MANAGER;
+
+  if (profile && !isManagerOrAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center h-[60vh] bg-white rounded-2xl border border-slate-100 shadow-sm font-sans">
+        <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-4 border border-red-100 shadow-inner">
+          <ShoppingCart className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800 font-serif">Access Restricted</h2>
+        <p className="text-slate-500 max-w-md mt-2 text-sm leading-relaxed">
+          Only Project Managers and Administrators are permitted to view and manage Purchase Orders and pricing information.
+        </p>
+      </div>
+    );
+  }
+
   const filteredPos = projectIdParam 
     ? pos.filter(po => po.projectId === projectIdParam)
     : pos;
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [projectIdParam]);
+
+  const totalPages = Math.ceil(filteredPos.length / itemsPerPage);
+  
   const enrichedPos = filteredPos.map(po => ({
     ...po,
     project: projects.find(p => p.id === po.projectId),
     vendor: vendors.find(v => v.id === po.vendorId)
   }));
+
+  const paginatedEnrichedPos = enrichedPos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) {
+        pages.push('ellipsis1');
+      }
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (currentPage < totalPages - 2) {
+        pages.push('ellipsis2');
+      }
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const addItem = () => {
     setItems([...items, { productId: '', quantityOrdered: 0, unitPrice: 0 }]);
@@ -113,34 +193,81 @@ export default function OrdersPage() {
       const random = Math.floor(100 + Math.random() * 900);
       const poNumber = `PO-${year}-${random}`;
 
+      let needsVerification = false;
+      let highestIncrease = 0;
+      const flaggedItems = [];
+      let hasWarning = false;
+
+      for (const item of items) {
+        const stats = await MaterialPriceHistoryService.getMaterialStats(item.productId);
+        if (stats && stats.lastPrice > 0) {
+          const percentIncrease = ((item.unitPrice - stats.lastPrice) / stats.lastPrice) * 100;
+          if (percentIncrease > 15) {
+            needsVerification = true;
+            if (percentIncrease > highestIncrease) {
+              highestIncrease = percentIncrease;
+            }
+            const product = products.find(p => p.id === item.productId);
+            flaggedItems.push({
+              productId: item.productId,
+              productName: product?.name || 'Unknown',
+              currentPrice: item.unitPrice,
+              previousPrice: stats.lastPrice,
+              percentageIncrease: percentIncrease
+            });
+          } else if (percentIncrease > 10) {
+            hasWarning = true;
+          }
+        }
+      }
+
+      let poStatus: PurchaseOrder['status'] = 'DRAFT';
+      let priceVerification;
+
+      if (needsVerification) {
+        poStatus = 'PRICE_VERIFICATION_REQUIRED';
+        priceVerification = {
+          highestPercentageIncrease: highestIncrease,
+          flaggedItems
+        };
+        toast.error('Price Verification Required: Purchase price exceeds history by >15%');
+      } else if (hasWarning) {
+        toast.warning('⚠ Warning: Manager Approval Recommended (Price increased >10%)', { duration: 6000 });
+      }
+
       await POService.add({
         poNumber,
         projectId,
         vendorId,
-        status: 'PENDING',
+        status: poStatus,
         items: items.map(i => ({ ...i, quantityReceived: 0 })),
         taxPercent,
         discountAmount,
         totalAmount: calculateTotal(),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        ...(priceVerification ? { priceVerification } : {})
       });
-      toast.success(`Purchase Order ${poNumber} created successfully`);
+      if (!needsVerification) {
+        toast.success(`Purchase Order ${poNumber} created successfully`);
+      }
       setIsAddOpen(false);
       setItems([]);
       setProjectId(projectIdParam || '');
       setVendorId('');
     } catch (err) {
+      console.error(err);
       toast.error('Failed to create PO');
     }
   };
 
   const handleUpdateStatus = async (status: PurchaseOrder['status']) => {
-    if (!selectedPo?.id) return;
+    if (!selectedPo) return;
     try {
-      await POService.updateStatus(selectedPo.id, status);
+      await POService.updateStatus(selectedPo, status);
       toast.success(`PO status updated to ${status}`);
       setIsDetailOpen(false);
     } catch (err) {
+      console.error(err);
       toast.error('Failed to update status');
     }
   };
@@ -165,15 +292,17 @@ export default function OrdersPage() {
               <DialogTitle>New Purchase Order</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Project</Label>
                   <Select value={projectId} onValueChange={setProjectId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select Project" />
+                      <SelectValue placeholder="Select Project">
+                        {projectId ? getProjectDisplayName(projectId, projects.find(p => p.id === projectId)) : 'Select Project'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{getProjectDisplayName(p.id, p)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -196,41 +325,51 @@ export default function OrdersPage() {
                  </div>
 
                  {items.map((item, idx) => (
-                    <div key={idx} className="flex gap-3 items-end border-b border-slate-100 pb-4">
+                    <div key={idx} className="flex flex-col sm:flex-row gap-3 sm:items-end border-b border-slate-100 pb-5">
                         <div className="flex-1 space-y-2">
-                           <Label className="text-[10px] uppercase font-mono">Product</Label>
+                           <Label className="text-[10px] uppercase font-mono flex items-center justify-between">
+                             <span>Product</span>
+                             {item.productId && (
+                               <VendorIntelligenceDialog initialMaterialId={item.productId} />
+                             )}
+                           </Label>
                            <MaterialSelector 
                               products={products}
                               selectedProductId={item.productId}
                               onSelect={(v) => updateItem(idx, 'productId', v)}
                            />
                         </div>
-                        <div className="w-24 space-y-2">
-                           <Label className="text-[10px] uppercase font-mono">Qty</Label>
-                           <Input 
-                              type="number" 
-                              className="h-9" 
-                              value={isNaN(item.quantityOrdered) ? '' : item.quantityOrdered} 
-                              onChange={(e) => updateItem(idx, 'quantityOrdered', e.target.value === '' ? 0 : parseFloat(e.target.value))} 
-                           />
+                        <div className="flex gap-3 w-full sm:w-auto">
+                           <div className="w-full sm:w-24 space-y-2">
+                              <Label className="text-[10px] uppercase font-mono">Qty</Label>
+                              <Input 
+                                 type="number" 
+                                 className="h-9" 
+                                 value={isNaN(item.quantityOrdered) ? '' : item.quantityOrdered} 
+                                 onChange={(e) => updateItem(idx, 'quantityOrdered', e.target.value === '' ? 0 : parseFloat(e.target.value))} 
+                              />
+                           </div>
+                           <div className="w-full sm:w-32 space-y-2">
+                              <Label className="text-[10px] uppercase font-mono flex items-center">
+                                Unit Price
+                                {item.productId && item.unitPrice > 0 && <PriceComparisonBadge materialId={item.productId} currentPrice={item.unitPrice} />}
+                              </Label>
+                              <Input 
+                                 type="number" 
+                                 className="h-9" 
+                                 value={isNaN(item.unitPrice) ? '' : item.unitPrice} 
+                                 onChange={(e) => updateItem(idx, 'unitPrice', e.target.value === '' ? 0 : parseFloat(e.target.value))} 
+                              />
+                           </div>
                         </div>
-                        <div className="w-32 space-y-2">
-                           <Label className="text-[10px] uppercase font-mono">Unit Price</Label>
-                           <Input 
-                              type="number" 
-                              className="h-9" 
-                              value={isNaN(item.unitPrice) ? '' : item.unitPrice} 
-                              onChange={(e) => updateItem(idx, 'unitPrice', e.target.value === '' ? 0 : parseFloat(e.target.value))} 
-                           />
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:text-red-600" onClick={() => removeItem(idx)}>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-red-600 self-end shrink-0" onClick={() => removeItem(idx)}>
                            <Trash2 className="w-4 h-4" />
                         </Button>
                     </div>
                  ))}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                 <div className="space-y-4">
                   <div className="space-y-2 text-right border rounded p-4 bg-slate-50/30">
                     <div className="flex justify-between items-center text-sm">
@@ -241,7 +380,7 @@ export default function OrdersPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] uppercase font-mono">Tax (%)</Label>
                       <Input type="number" className="h-9" value={taxPercent} onChange={e => setTaxPercent(parseFloat(e.target.value) || 0)} />
@@ -267,62 +406,159 @@ export default function OrdersPage() {
         </Dialog>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-sm">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      <div className="bg-white border-none rounded-[2.5rem] shadow-xl shadow-slate-200/50 overflow-hidden">
+        <div className="p-8 border-b border-slate-50 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
            <div className="flex gap-4">
-             <Button variant="outline" size="sm" className="h-8 gap-2"><Filter className="w-3 h-3" /> All Statuses</Button>
-             <Button variant="outline" size="sm" className="h-8 gap-2"><Filter className="w-3 h-3" /> All Vendors</Button>
-           </div>
-           <div className="text-[10px] uppercase font-mono tracking-widest text-slate-400">
-             Scroll horizontally for line items
+             <Button variant="outline" size="sm" className="h-10 rounded-xl px-4 gap-2 border-slate-200"><Filter className="w-4 h-4" /> All Statuses</Button>
+             <Button variant="outline" size="sm" className="h-10 rounded-xl px-4 gap-2 border-slate-200"><Filter className="w-4 h-4" /> All Vendors</Button>
            </div>
         </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-[10px] font-mono uppercase tracking-widest italic bg-white">
-                <TableHead>PO ID</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead className="text-right">Total (Inc Tax)</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Date</TableHead>
+        <div className="overflow-x-auto w-full">
+          <div className="hidden md:block min-w-full">
+          <Table compact>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="border-slate-100">
+                <TableHead className="py-4 pl-8 font-bold text-slate-900">PO ID</TableHead>
+                <TableHead className="font-bold text-slate-900">PROJECT</TableHead>
+                <TableHead className="font-bold text-slate-900">VENDOR</TableHead>
+                <TableHead className="font-bold text-slate-900">ITEMS</TableHead>
+                <TableHead className="text-right font-bold text-slate-900">TOTAL</TableHead>
+                <TableHead className="font-bold text-slate-900">STATUS</TableHead>
+                <TableHead className="text-right pr-8 font-bold text-slate-900">DATE</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="text-sm">
-              {enrichedPos.map((po) => (
+            <TableBody>
+              {paginatedEnrichedPos.map((po) => (
                 <TableRow 
                   key={po.id} 
-                  className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                  className="border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer group"
                   onClick={() => {
                     setSelectedPo(po);
                     setIsDetailOpen(true);
                   }}
                 >
-                  <TableCell className="font-mono text-xs font-bold text-blue-600 group-hover:underline">{po.poNumber || `#${po.id.slice(-6)}`}</TableCell>
-                  <TableCell className="font-medium">{po.project?.name || 'Loading...'}</TableCell>
-                  <TableCell>{po.vendor?.name || 'Loading...'}</TableCell>
-                  <TableCell>{po.items.length} materials</TableCell>
-                  <TableCell className="text-right font-mono font-bold">₹{po.totalAmount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="uppercase text-[9px] font-mono tracking-tight">{po.status}</Badge>
+                  <TableCell className="py-4 pl-8">
+                    <span className="font-mono text-xs font-bold text-blue-600 group-hover:underline block">{po.poNumber || `#${po.id.slice(-6)}`}</span>
+                    {po.linkedMrNumber && <span className="font-mono text-[9px] text-orange-600 mt-1 block tracking-wider">MR: {po.linkedMrNumber}</span>}
                   </TableCell>
-                  <TableCell className="text-right text-xs text-slate-400 italic">
+                  <TableCell className="font-bold text-slate-900">{getProjectDisplayName(po.projectId, po.project)}</TableCell>
+                  <TableCell className="text-slate-600">{po.vendor?.name || 'Loading...'}</TableCell>
+                  <TableCell className="text-slate-600">{po.items.length} materials</TableCell>
+                  <TableCell className="text-right font-mono text-slate-900 font-bold">₹{po.totalAmount.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="rounded-full border-slate-200 font-bold text-[10px] uppercase">{po.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right pr-8 text-xs text-slate-500 font-medium">
                     {new Date(po.createdAt).toLocaleDateString()}
                   </TableCell>
                 </TableRow>
               ))}
-              {enrichedPos.length === 0 && (
+              {paginatedEnrichedPos.length === 0 && (
                 <TableRow>
-                   <TableCell colSpan={7} className="h-48 text-center text-slate-400 italic font-serif">
+                   <TableCell colSpan={7} className="h-48 text-center text-slate-400 italic">
                       No active purchase orders. Use "Create PO" to initiate procurement.
                    </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+          </div>
+          
+          {/* Mobile View */}
+          <div className="md:hidden flex flex-col divide-y divide-slate-100">
+            {paginatedEnrichedPos.length === 0 ? (
+               <div className="p-8 text-center text-slate-500 italic">No purchase orders found.</div>
+            ) : paginatedEnrichedPos.map((po) => (
+               <div 
+                  key={po.id} 
+                  className="p-4 flex flex-col gap-3 cursor-pointer group hover:bg-slate-50/50 transition-colors"
+                  onClick={() => {
+                    setSelectedPo(po);
+                    setIsDetailOpen(true);
+                  }}
+               >
+                  <div className="flex justify-between items-start">
+                     <div className="flex flex-col">
+                        <span className="font-mono text-sm font-bold text-blue-600 group-hover:underline block">{po.poNumber || `#${po.id.slice(-6)}`}</span>
+                        {po.linkedMrNumber && <span className="font-mono text-[10px] text-orange-600 mt-0.5 block tracking-wider">MR: {po.linkedMrNumber}</span>}
+                     </div>
+                     <Badge variant="outline" className="rounded-full border-slate-200 font-bold text-[10px] uppercase">{po.status}</Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                     <div className="flex flex-col">
+                        <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-0.5">Project</span>
+                        <span className="text-xs font-bold text-slate-900 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 w-fit">{getProjectDisplayName(po.projectId, po.project)}</span>
+                     </div>
+                     <div className="flex flex-col text-right">
+                        <span className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-0.5">Total Amount</span>
+                        <span className="text-sm font-mono text-slate-900 font-black leading-none">₹{po.totalAmount.toLocaleString()}</span>
+                     </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-xs mt-1 border-t border-slate-100 pt-2">
+                     <div className="flex items-center gap-1.5 text-slate-600 font-medium">
+                        <Store className="w-3.5 h-3.5 text-slate-400" />
+                        {po.vendor?.name || 'Loading...'}
+                     </div>
+                     <div className="flex flex-col items-end">
+                       <span className="text-slate-500 font-medium">{po.items.length} materials</span>
+                       <span className="text-[10px] text-slate-400 font-mono mt-0.5">{new Date(po.createdAt).toLocaleDateString()}</span>
+                     </div>
+                  </div>
+               </div>
+            ))}
+          </div>
         </div>
+        {totalPages > 1 && (
+          <div className="p-6 border-t border-slate-100 flex items-center justify-between flex-wrap gap-4 bg-slate-50/50">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 rounded-xl px-4 font-bold border-slate-200 bg-white hover:bg-slate-50"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              >
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {getPageNumbers().map((page, index) => {
+                  if (typeof page === 'string') {
+                    return <span key={`ellipse-${index}`} className="text-slate-400 px-2">...</span>;
+                  }
+                  return (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-10 w-10 p-0 rounded-xl font-bold transition-all ${
+                        currentPage === page ? "bg-primary shadow-sm text-white" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                      }`}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 rounded-xl px-4 font-bold border-slate-200 bg-white hover:bg-slate-50"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
@@ -345,12 +581,13 @@ export default function OrdersPage() {
                 <div className="space-y-1 text-right">
                   <p className="text-[10px] uppercase font-mono text-slate-400">Order Information</p>
                   <p className="font-bold text-slate-900">{selectedPo.poNumber || `PO #${selectedPo.id.slice(-6)}`}</p>
+                  {selectedPo.linkedMrNumber && <p className="text-[10px] text-orange-600 font-mono tracking-wider">Ref: {selectedPo.linkedMrNumber}</p>}
                   <p className="text-slate-500">{new Date(selectedPo.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
 
-              <div className="border border-slate-100 rounded-sm">
-                <Table>
+              <div className="border border-slate-100 rounded-sm overflow-x-auto">
+                <Table compact>
                   <TableHeader>
                     <TableRow className="bg-slate-50 text-[10px] uppercase font-mono italic">
                       <TableHead>Product</TableHead>
@@ -366,7 +603,10 @@ export default function OrdersPage() {
                         <TableRow key={idx} className="text-xs">
                           <TableCell className="font-medium">{product?.name || 'Unknown Product'}</TableCell>
                           <TableCell className="text-right">{item.quantityOrdered} {product?.uom}</TableCell>
-                          <TableCell className="text-right">₹{item.unitPrice.toLocaleString()}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
+                             ₹{item.unitPrice.toLocaleString()}
+                             <PriceComparisonBadge materialId={item.productId} currentPrice={item.unitPrice} />
+                          </TableCell>
                           <TableCell className="text-right font-bold">₹{(item.quantityOrdered * item.unitPrice).toLocaleString()}</TableCell>
                         </TableRow>
                       );
@@ -396,8 +636,95 @@ export default function OrdersPage() {
 
               <div className="pt-6 border-t border-slate-100">
                 <p className="text-[10px] uppercase font-mono text-slate-400 mb-3">Workflow Actions</p>
+                
+                {selectedPo.status === 'PRICE_VERIFICATION_REQUIRED' && selectedPo.priceVerification && (
+                  <div className="mb-4 p-4 border border-red-200 bg-red-50 rounded-lg space-y-4">
+                    <div className="flex items-center gap-2 text-red-800 font-bold">
+                       <AlertCircle className="w-5 h-5" />
+                       Price Verification Required
+                    </div>
+                    <p className="text-sm text-red-700">This Purchase Order contains items priced &gt;15% higher than their last purchase price.</p>
+                    <div className="space-y-2">
+                       {selectedPo.priceVerification.flaggedItems?.map((fi, i) => (
+                         <div key={i} className="text-xs bg-white p-2 rounded border border-red-100 flex justify-between items-center">
+                           <div>
+                             <span className="font-bold">{fi.productName}</span><br />
+                             <span className="text-slate-500">Prev: ₹{fi.previousPrice.toLocaleString()} | Curr: ₹{fi.currentPrice.toLocaleString()}</span>
+                           </div>
+                           <div className="text-red-600 font-bold">
+                             +₹{(fi.currentPrice - fi.previousPrice).toLocaleString()} ({fi.percentageIncrease.toFixed(1)}%)
+                           </div>
+                         </div>
+                       ))}
+                    </div>
+                    
+                    {['ADMIN', 'MANAGER'].includes(profile?.role || '') ? (
+                      <div className="space-y-2 pt-2 border-t border-red-200">
+                        <Label className="text-xs font-bold text-red-800">Reason for Approval (Required)</Label>
+                        <Textarea 
+                          placeholder="Provide justification for approving this high-priced purchase..."
+                          className="bg-white border-red-200 text-sm"
+                          id="verificationReason"
+                        />
+                        <div className="flex gap-2 pt-2">
+                          <Button 
+                             className="flex-1 bg-red-600 hover:bg-red-700"
+                             onClick={() => {
+                               const reason = (document.getElementById('verificationReason') as HTMLTextAreaElement).value;
+                               if (!reason.trim()) {
+                                 toast.error('Reason is mandatory for approval');
+                                 return;
+                               }
+                               // Update PO
+                               const verificationUpdates = {
+                                 priceVerification: {
+                                   ...selectedPo.priceVerification,
+                                   reason: reason,
+                                   approvedBy: profile?.id,
+                                   approvalTime: new Date().toISOString()
+                                 }
+                               };
+                               POService.updateStatus(selectedPo, 'APPROVED', verificationUpdates).then(() => {
+                                  toast.success('Price verified and PO approved');
+                                  
+                                  // Add audit log
+                                  addDoc(collection(db, 'auditLogs'), {
+                                      action: 'PRICE_VERIFICATION_APPROVED',
+                                      poId: selectedPo.id,
+                                      poNumber: selectedPo.poNumber,
+                                      userId: profile?.id,
+                                      userEmail: profile?.email,
+                                      userName: profile?.name,
+                                      reason: reason,
+                                      timestamp: serverTimestamp(),
+                                      flaggedItems: selectedPo.priceVerification?.flaggedItems,
+                                      highestPercentageIncrease: selectedPo.priceVerification?.highestPercentageIncrease
+                                  });
+                                  
+                                  setIsDetailOpen(false);
+                               });
+                             }}
+                          >
+                             Verify & Approve Order
+                          </Button>
+                          <Button 
+                             className="flex-1 bg-white text-red-600 hover:bg-red-100 border border-red-200"
+                             onClick={() => handleUpdateStatus('REJECTED')}
+                          >
+                             Reject Order
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-red-600 italic bg-red-100 p-2 rounded">
+                        Only Managers or Admins can approve this order.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-2">
-                  {selectedPo.status === 'PENDING' && (
+                  {selectedPo.status === 'DRAFT' && (
                     <>
                       <Button 
                         className="flex-1 bg-green-600 hover:bg-green-700"
@@ -417,17 +744,17 @@ export default function OrdersPage() {
                   {selectedPo.status === 'APPROVED' && (
                     <Button 
                       className="flex-1 bg-blue-600 hover:bg-blue-700"
-                      onClick={() => handleUpdateStatus('READY_FOR_PICKUP')}
-                    >
-                      Mark as Ready for Pickup
-                    </Button>
-                  )}
-                  {selectedPo.status === 'READY_FOR_PICKUP' && (
-                    <Button 
-                      className="flex-1 bg-slate-900 hover:bg-slate-800"
                       onClick={() => handleUpdateStatus('SHIPPED')}
                     >
-                      Confirm Shipped
+                      Mark as Shipped
+                    </Button>
+                  )}
+                  {(selectedPo.status === 'RECEIVED' || selectedPo.status === 'PARTIAL_RECEIVED') && (
+                    <Button 
+                      className="flex-1 bg-slate-900 hover:bg-slate-800"
+                      onClick={() => handleUpdateStatus('CLOSED')}
+                    >
+                      Close Order
                     </Button>
                   )}
                   <Button variant="ghost" className="flex-1" onClick={() => setIsDetailOpen(false)}>Close</Button>

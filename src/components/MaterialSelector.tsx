@@ -17,7 +17,7 @@ import {
   Package, 
   AlertCircle 
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatMaterialName } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface MaterialSelectorProps {
@@ -25,13 +25,15 @@ interface MaterialSelectorProps {
   selectedProductId: string;
   onSelect: (productId: string) => void;
   className?: string;
+  warehouseStocks?: Record<string, number>;
 }
 
 export function MaterialSelector({ 
   products, 
   selectedProductId, 
   onSelect, 
-  className 
+  className,
+  warehouseStocks = {} 
 }: MaterialSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -81,11 +83,14 @@ export function MaterialSelector({
       await ProductService.add({
         name: newName.trim(),
         category: 'General',
+        subcategory: 'General',
         uom: 'Units',
         sku: `MAT-${Date.now().toString().slice(-6)}`,
         description: 'Added via requisition selector',
         unitPrice: 0,
-        lowStockThreshold: 10
+        minStockLevel: 10,
+        hsnCode: '000000',
+        materialType: 'Other'
       });
       
       // Since it's a subscription, we need to find it by name in the next pulse or just wait
@@ -111,7 +116,7 @@ export function MaterialSelector({
           {selectedProduct ? (
             <div className="flex items-center gap-2 overflow-hidden">
                <Package className="w-4 h-4 text-slate-400 shrink-0" />
-               <span className="truncate">{selectedProduct.name}</span>
+               <span className="truncate">{formatMaterialName(selectedProduct.name)}</span>
             </div>
           ) : (
             <span className="text-slate-400">Select Material...</span>
@@ -181,7 +186,7 @@ export function MaterialSelector({
                                )}
                              >
                                <div className="flex flex-col">
-                                  <span className="font-semibold text-slate-800 group-hover:text-blue-700">{product.name}</span>
+                                  <span className="font-semibold text-slate-800 group-hover:text-blue-700">{formatMaterialName(product.name)} (Stock: {warehouseStocks[product.id] || 0})</span>
                                   <span className="text-[10px] text-slate-400 uppercase font-mono">{product.category} • {product.uom}</span>
                                </div>
                                {selectedProductId === product.id && <Check className="w-4 h-4 text-blue-600" />}

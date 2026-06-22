@@ -62,8 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (username: string, password: string) => {
-    // Map username to system email
-    const email = `${username.trim().toLowerCase()}@system.local`;
+    // Map username to system email, matching the stricter sanitization in server.ts
+    const sanitizedUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (!sanitizedUsername) {
+      throw new Error("Invalid username");
+    }
+    const email = `${sanitizedUsername}@system.local`;
     await signInWithEmailAndPassword(auth, email, password);
   };
 

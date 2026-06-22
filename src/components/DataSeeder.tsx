@@ -14,12 +14,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { masterCatalog } from '@/data/product-catalog';
 
 export default function DataSeeder({ currentProjectId }: { currentProjectId?: string }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [status, setStatus] = useState<string>('Idle');
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const { user } = useAuth();
+  
+  const materials = masterCatalog;
 
   useEffect(() => {
     if (!user) return;
@@ -29,39 +32,6 @@ export default function DataSeeder({ currentProjectId }: { currentProjectId?: st
     });
     return unsub;
   }, [user]);
-
-  const materials = [
-    { name: "Cement", category: "Basics", unit: "Bags" },
-    { name: "Sand", category: "Basics", unit: "Trolley" },
-    { name: "Aggregate", category: "Basics", unit: "Trolley" },
-    { name: "Steel Rod", category: "Structural", unit: "KG" },
-    { name: "TMT Bar", category: "Structural", unit: "KG" },
-    { name: "Bricks", category: "Basics", unit: "Nos" },
-    { name: "Tiles", category: "Finishing", unit: "Boxes" },
-    { name: "Granite", category: "Finishing", unit: "SqFt" },
-    { name: "Marble", category: "Finishing", unit: "SqFt" },
-    { name: "Putty", category: "Finishing", unit: "Bags" },
-    { name: "Paint", category: "Finishing", unit: "Ltr" },
-    { name: "Primer", category: "Finishing", unit: "Ltr" },
-    { name: "Electrical Wire", category: "Electrical", unit: "Meter" },
-    { name: "PVC Pipe", category: "Plumbing", unit: "Nos" },
-    { name: "Water Tank", category: "Plumbing", unit: "Nos" },
-    { name: "Door Frame", category: "Interior", unit: "Nos" },
-    { name: "Window Frame", category: "Interior", unit: "Nos" },
-    { name: "Plywood", category: "Interior", unit: "Sheet" },
-    { name: "Glass Sheet", category: "Interior", unit: "SqFt" },
-    { name: "Quartz Slab", category: "Finishing", unit: "Nos" },
-    { name: "Tile Adhesive", category: "Finishing", unit: "Bags" },
-    { name: "POP", category: "Finishing", unit: "Bags" },
-    { name: "Switch Board", category: "Electrical", unit: "Nos" },
-    { name: "LED Light", category: "Electrical", unit: "Nos" },
-    { name: "Plumbing Pipe", category: "Plumbing", unit: "Meter" },
-    { name: "Bathroom Fittings", category: "Plumbing", unit: "Set" },
-    { name: "Fasteners", category: "Hardware", unit: "Nos" },
-    { name: "Hardware Items", category: "Hardware", unit: "Nos" },
-    { name: "Safety Equipment", category: "Safety", unit: "Set" },
-    { name: "Wooden Panels", category: "Interior", unit: "Sheet" }
-  ];
 
   const seedData = async () => {
     setIsConfirmationOpen(false);
@@ -132,7 +102,10 @@ export default function DataSeeder({ currentProjectId }: { currentProjectId?: st
             batch.set(productRef, {
                 name: mat.name,
                 category: mat.category,
+                subcategory: mat.subcategory,
                 uom: mat.unit,
+                hsnCode: mat.hsnCode,
+                materialType: mat.materialType,
                 sku: `SKU-${mat.name.substring(0,3).toUpperCase()}-${Math.floor(Math.random()*1000)}`,
                 lowStockThreshold: 10,
                 description: `High quality ${mat.name}`,
@@ -307,7 +280,7 @@ export default function DataSeeder({ currentProjectId }: { currentProjectId?: st
             <DialogHeader>
                 <DialogTitle>Confirm Data Seeding</DialogTitle>
                 <DialogDescription>
-                    Adding 30 dummy materials into the site inventory of {currentProjectId ? 'this Project' : 'XYZ Project'}. This action cannot be undone. Are you sure?
+                    Adding 50 dummy materials into the site inventory of {currentProjectId ? 'this Project' : 'XYZ Project'}. This action cannot be undone. Are you sure?
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter>

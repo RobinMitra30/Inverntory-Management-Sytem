@@ -1,0 +1,12 @@
+src/pages/RequisitionPage.tsx:    const qStocks = query(collection(db, 'stocks'), where('projectId', '==', MAIN_WAREHOUSE_PROJECT_ID));
+src/pages/RequisitionPage.tsx:            const q = query(usersRef, where('role', '==', 'ADMIN'));
+src/pages/MaterialRequirementDetailsPage.tsx:            getDocs(query(
+src/pages/MaterialRequirementsPage.tsx:    const q = query(collection(db, 'materialRequirements'), orderBy('createdAt', 'desc'));
+src/pages/MaterialRequirementsPage.tsx:      const qStocks = query(collection(db, 'stocks'), where('projectId', '==', MAIN_WAREHOUSE_PROJECT_ID));
+src/pages/MaterialRequirementsPage.tsx:      const stockQuery = query(
+src/pages/AdminPage.tsx:    const q = query(collection(db, 'demoRequests'), orderBy('createdAt', 'desc'));
+src/pages/AdminPage.tsx:        const q = query(collection(db, 'products'), where('sku', '==', p.sku));
+src/pages/PurchaseRequisitionDetailsPage.tsx:    const qStocks = query(collection(db, 'stocks'), where('projectId', '==', MAIN_WAREHOUSE_PROJECT_ID));
+src/components/layout/Navbar.tsx:    const q = query(
+src/services/store.ts:            getDocs(query(
+src/services/store.ts:            getDocs(query(

@@ -1,169 +1,399 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, 
-  Users, 
-  FileText, 
-  AlertCircle, 
   ArrowUpRight, 
-  ArrowDownRight,
-  ClipboardCheck,
-  Zap,
-  Activity,
-  HardHat,
-  Clock,
-  Camera,
-  Shield
+  Plus, 
+  ArrowUpDown, 
+  Filter, 
+  Calendar, 
+  ArrowRight, 
+  QrCode, 
+  Layers, 
+  Box, 
+  ShoppingCart,
+  Search,
+  Package,
+  ClipboardList,
+  AlertTriangle,
+  FileCheck,
+  History,
+  RotateCcw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth-context';
-import { UserRole } from '@/types';
+import { UserRole, Product, PurchaseOrder, PurchaseRequisition, Stock, StockMovement, MovementType, MAIN_WAREHOUSE_PROJECT_ID } from '@/types';
 import { cn } from '@/lib/utils';
+import { ProductService, POService, PRService, InventoryService, MovementService } from '@/services/store';
+import { toast } from 'sonner';
+
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [poiList, setPoiList] = useState<PurchaseOrder[]>([]);
+  const [prList, setPrList] = useState<PurchaseRequisition[]>([]);
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  
+  // Date states for the pill inputs shown in the mockup
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  useEffect(() => {
+    const unsubProducts = ProductService.subscribe(setProducts);
+    const unsubPos = POService.subscribe(setPoiList);
+    const unsubPrs = PRService.subscribe(setPrList);
+    const unsubStocks = InventoryService.subscribe(setStocks);
+    const unsubMovements = MovementService.subscribe(setMovements);
+    return () => {
+      unsubProducts();
+      unsubPos();
+      unsubPrs();
+      unsubStocks();
+      unsubMovements();
+    };
+  }, []);
+
+  // Compute live statistics based on real data
+  const totalProducts = products.length;
+  
+  const totalPOs = poiList.length;
+  const pendingPOs = poiList.filter(po => po.status === 'DRAFT').length;
+  const approvedPOs = poiList.filter(po => po.status === 'APPROVED').length;
+  const completedPOs = poiList.filter(po => po.status === 'RECEIVED' || po.status === 'CLOSED').length;
+  const cancelledPOs = poiList.filter(po => po.status === 'REJECTED').length;
+  
+  const totalPRs = prList.length;
+  const pendingPRs = prList.filter(pr => ['DRAFT', 'UNDER_REVIEW', 'PENDING_APPROVAL'].includes(pr.status)).length;
+  const approvedPRs = prList.filter(pr => ['PM_APPROVED', 'ADMIN_APPROVED', 'CONVERTED_TO_PO'].includes(pr.status)).length;
+  const rejectedPRs = prList.filter(pr => pr.status === 'REJECTED').length;
+  
+  const totalRevenueNumber = poiList.filter(po => ['APPROVED', 'SHIPPED', 'PARTIAL_RECEIVED', 'RECEIVED', 'CLOSED'].includes(po.status)).reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+  const totalRevenue = totalRevenueNumber > 0 ? "₹" + totalRevenueNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹0";
+
+  // Warehouse Analytics
+  const mainWarehouseStocks = stocks.filter(s => s.projectId === MAIN_WAREHOUSE_PROJECT_ID);
+  const totalWarehouseStockQty = mainWarehouseStocks.reduce((sum, s) => sum + s.quantity, 0);
+  
+  const totalWarehouseStockValue = mainWarehouseStocks.reduce((sum, s) => {
+    const p = products.find(prod => prod.id === s.productId);
+    return sum + (s.quantity * (p?.unitPrice || 0));
+  }, 0);
+  
+  const lowStockItems = mainWarehouseStocks.filter(s => {
+    const product = products.find(p => p.id === s.productId);
+    return product && s.quantity > 0 && s.quantity <= product.minStockLevel;
+  }).length;
+  const outOfStockItems = mainWarehouseStocks.filter(s => s.quantity === 0).length;
+
+  // Project Site Analytics
+  const projectStocks = stocks.filter(s => s.projectId !== MAIN_WAREHOUSE_PROJECT_ID);
+  const totalSiteStock = projectStocks.reduce((sum, s) => sum + s.quantity, 0);
+  
+  const issuedMovements = movements.filter(m => m.type === MovementType.MATERIAL_ISSUE || m.type === MovementType.ISSUE_TO_SITE || m.type === MovementType.DIRECT_WAREHOUSE_ISSUE);
+  const totalIssued = issuedMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+  
+  const consumedMovements = movements.filter(m => m.type === MovementType.CONSUMPTION_ENTRY);
+  const totalConsumed = consumedMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+  
+  const returnedMovements = movements.filter(m => m.type === MovementType.RETURN_TO_STORE || m.type === MovementType.RETURN_TO_WAREHOUSE || m.type === MovementType.DAMAGED_RETURN || m.type === MovementType.EXCESS_RETURN || m.type === MovementType.RETURN_APPROVED);
+  const totalReturned = returnedMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0);
+
+  // Best Selling Products (based on issue quantities)
+  const productIssueMap: Record<string, { qty: number, revenue: number }> = {};
+  issuedMovements.forEach(m => {
+    if (!productIssueMap[m.productId]) {
+      productIssueMap[m.productId] = { qty: 0, revenue: 0 };
+    }
+    const qty = Math.abs(m.quantity);
+    productIssueMap[m.productId].qty += qty;
+    
+    // Estimate value
+    const p = products.find(prod => prod.id === m.productId);
+    if (p) {
+      productIssueMap[m.productId].revenue += qty * (p.unitPrice || 0);
+    }
+  });
+  
+  const topIssuedProducts = Object.entries(productIssueMap)
+    .sort((a, b) => b[1].qty - a[1].qty)
+    .slice(0, 5)
+    .map(([productId, data]) => {
+      const p = products.find(prod => prod.id === productId);
+      return {
+        id: productId,
+        name: p?.name || 'Unknown Product',
+        sku: p?.sku || 'N/A',
+        issuedQty: data.qty,
+        value: "₹" + data.revenue.toLocaleString(),
+        category: p?.category || 'General'
+      };
+    });
+
+  const recentActivity = [...movements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+
+
   return (
-    <div className="space-y-10 pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200/60 pb-8">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 font-heading">Project Command Center</h1>
-          <p className="text-slate-500 text-base font-medium">Real-time visibility into site workforce, material flow, and progress across all active projects.</p>
-        </div>
-        <div className="flex items-center gap-3">
-           {profile?.role === UserRole.ADMIN && (
-             <NavLink to="/admin">
-               <Button variant="outline" className="h-11 px-6 gap-2 border-slate-200 text-slate-600 hover:text-primary hover:border-primary transition-all rounded-xl shadow-sm">
-                 <Shield className="w-4 h-4" />
-                 Admin Panel
-               </Button>
-             </NavLink>
-           )}
-           {/*
-           <NavLink to="/progress">
-             <Button variant="outline" className="h-11 px-6 gap-2 border-slate-200 text-slate-600 hover:text-primary hover:border-primary transition-all rounded-xl shadow-sm">
-               <Camera className="w-4 h-4 text-primary" />
-               Site Photos
-             </Button>
-           </NavLink>
-           */}
-         </div>
+    <div className="space-y-4 sm:space-y-6 md:space-y-8 pb-12 antialiased">
+      {/* Title Header Section */}
+      <div className="flex items-center justify-between px-1">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight font-sans">
+          Dashboard
+        </h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Workforce On-Site', value: '124', trend: '+8', up: true, icon: HardHat, color: 'text-primary', bg: 'bg-primary/5' },
-          { label: 'Tasks Completed', value: '82%', trend: '+4%', up: true, icon: ClipboardCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Material Costs (MTD)', value: '₹1.8M', trend: 'Budgeted', up: null, icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Open Issues', value: '12', trend: '-2', up: false, icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
-        ].map((stat, i) => (
-          <Card key={i} className="group hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 border-slate-100 rounded-3xl overflow-hidden">
-            <CardContent className="p-8">
-              <div className="flex justify-between items-start mb-6">
-                <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color} transition-transform group-hover:scale-110 duration-300`}>
-                  <stat.icon className="w-6 h-6" />
-                </div>
-                {stat.up !== null && (
-                  <Badge variant={stat.up ? "success" : "destructive"} className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold", stat.up ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-rose-100 text-rose-700 hover:bg-rose-100 border-none")}>
-                    {stat.up ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                    {stat.trend}
-                  </Badge>
-                )}
-                {stat.up === null && (
-                  <Badge variant="outline" className="px-2 py-0.5 rounded-full text-[10px] font-bold border-slate-200 text-slate-500">
-                    {stat.trend}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs uppercase tracking-[0.15em] text-slate-400 font-bold mb-2">{stat.label}</p>
-              <h3 className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</h3>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Top Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+        
+        {/* Card 1: Total Products */}
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <CardContent className="p-5 sm:p-6 flex flex-col justify-between h-40">
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-slate-500 font-bold">Total Products</p>
+              <h3 className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 sm:mt-2 font-mono tracking-tight leading-none">{totalProducts}</h3>
+            </div>
+            <div className="flex items-center gap-2 mt-auto">
+              <Button 
+                onClick={() => navigate('/products')}
+                className="bg-white/80 text-slate-800 hover:bg-white text-[10px] font-bold border border-white/60 h-7 px-3 rounded-full w-fit shadow-xs transition-colors"
+               >
+                <Plus className="w-3 h-3 mr-1 text-slate-800" />
+                Add
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Purchase Requisitions */}
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <CardContent className="p-5 sm:p-6 flex flex-col justify-between h-40">
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-slate-500 font-bold flex items-center gap-1 leading-tight"><ClipboardList className="w-3.5 h-3.5"/> Purchase Reqs</p>
+              <h3 className="text-3xl sm:text-4xl font-black text-slate-900 mt-2 font-mono tracking-tight leading-none">{totalPRs}</h3>
+            </div>
+            <div className="flex gap-2 text-[10px] font-bold mt-auto items-center">
+               <div className="flex flex-col">
+                 <span className="text-amber-600">{pendingPRs} Pending</span>
+                 <span className="text-emerald-600">{approvedPRs} Approved</span>
+               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Purchase Orders */}
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <CardContent className="p-5 sm:p-6 flex flex-col justify-between h-40">
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-slate-500 font-bold flex items-center gap-1 leading-tight"><ShoppingCart className="w-3.5 h-3.5"/> Purchase Orders</p>
+              <h3 className="text-3xl sm:text-4xl font-black text-slate-900 mt-2 font-mono tracking-tight leading-none">{totalPOs}</h3>
+            </div>
+            <div className="flex gap-2 text-[10px] font-bold mt-auto items-center">
+               <div className="flex flex-col">
+                 <span className="text-amber-600">{pendingPOs} Pending</span>
+                 <span className="text-emerald-600">{approvedPOs} Approved</span>
+               </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Card 4: Revenue / Expenditure */}
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <CardContent className="p-5 sm:p-6 flex flex-col justify-between h-40">
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-slate-500 font-bold flex items-center gap-1 leading-tight"><TrendingUp className="w-3.5 h-3.5"/> PO Value</p>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-2 font-mono tracking-tight leading-none">{totalRevenue}</h3>
+            </div>
+            <div className="flex gap-2 text-[10px] font-bold mt-auto items-center text-slate-500">
+               Total successful orders
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card 5: Main Warehouse Inventory */}
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md relative overflow-hidden group hover:scale-[1.01] transition-transform">
+          <CardContent className="p-5 sm:p-6 flex flex-col justify-between h-40">
+            <div>
+              <p className="text-[10px] sm:text-xs uppercase tracking-[0.15em] text-slate-500 font-bold flex items-center gap-1 leading-tight"><Package className="w-3.5 h-3.5"/> Main Warehouse</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 font-mono tracking-tight leading-none">
+                {totalWarehouseStockQty.toLocaleString()}
+              </h3>
+            </div>
+            <div className="flex gap-2 text-[10px] font-bold mt-auto items-center">
+               <div className="flex flex-col">
+                 <span className="text-amber-600">{lowStockItems} Low Stock</span>
+                 <span className="text-red-600">{outOfStockItems} Out of Stock</span>
+               </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <Card className="border-slate-100 shadow-sm rounded-3xl overflow-hidden">
-            <CardHeader className="bg-slate-50/20 border-b border-slate-100 flex flex-row items-center justify-between py-6 px-10">
-               <div>
-                  <CardTitle className="text-lg font-bold text-slate-800">Project Vitality</CardTitle>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5 uppercase tracking-wide">Real-time site activity stream</p>
-               </div>
-               <Button variant="ghost" size="sm" className="text-xs text-primary font-bold hover:bg-primary/5 rounded-xl px-4">View History</Button>
-            </CardHeader>
-            <CardContent className="p-0">
-               <div className="divide-y divide-slate-50">
-                 {[
-                   { type: 'DPR Submitted', ref: 'Skyline Residency', user: 'Amit Singh', time: '10m ago', icon: FileText, color: 'text-primary' },
-                   { type: 'Material Received', ref: 'GRN-98210', user: 'Sunil (Store)', time: '2h ago', icon: Zap, color: 'text-emerald-500' },
-                   { type: 'Flagged Issue', ref: 'Curing Delay (Block B)', user: 'QC Team', time: '5h ago', icon: AlertCircle, color: 'text-rose-500' },
-                   { type: 'Task Completed', ref: '3rd Floor Plaster', user: 'Rajesh Contractor', time: '1d ago', icon: Activity, color: 'text-indigo-500' },
-                 ].map((item, i) => (
-                   <div key={i} className="flex items-center justify-between p-6 px-10 hover:bg-slate-50/80 transition-all duration-200 group">
-                      <div className="flex items-center gap-5">
-                        <div className={`w-12 h-12 rounded-2xl bg-white border border-slate-50 shadow-sm flex items-center justify-center transition-transform group-hover:scale-105`}>
-                           <item.icon className={`w-5 h-5 ${item.color}`} />
-                        </div>
-                        <div>
-                          <p className="text-base font-semibold text-slate-900 group-hover:text-primary transition-colors">{item.type} <span className="text-slate-400 font-mono text-xs ml-3 bg-slate-100 px-2 py-0.5 rounded">@{item.ref}</span></p>
-                          <p className="text-xs text-slate-500 flex items-center gap-2 font-medium mt-0.5">
-                            <span className="font-bold text-slate-700">{item.user}</span>
-                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                            <span>{item.time}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="icon" className="text-slate-300 hover:text-primary hover:bg-primary/5 rounded-xl">
-                         <ArrowUpRight className="w-5 h-5" />
-                      </Button>
-                   </div>
-                 ))}
-               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-8">
-          <Card className="border-slate-100 shadow-sm rounded-3xl overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
-            <CardHeader className="bg-slate-50/20 px-8 py-6">
-               <div className="flex items-center gap-3">
-                 <AlertCircle className="w-5 h-5 text-rose-500" />
-                 <CardTitle className="text-lg font-bold text-slate-800">Risk Assessment</CardTitle>
-               </div>
-            </CardHeader>
-            <CardContent className="px-8 pb-8">
-               <div className="space-y-6">
-                 {[
-                   { title: 'Resource Shortage', desc: 'Labor count is 20% below target in Skyline.', color: 'bg-rose-500' },
-                   { title: 'Delayed Procurement', desc: 'Cement PO #88123 delivery expected 2 days late.', color: 'bg-amber-500' }
-                 ].map((risk, i) => (
-                   <div key={i} className="flex gap-4 p-4 rounded-2xl bg-slate-50/50 hover:bg-slate-50 transition-colors">
-                      <div className={`w-1 ${risk.color} h-10 rounded-full shrink-0`}></div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{risk.title}</p>
-                        <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">{risk.desc}</p>
-                      </div>
-                   </div>
-                 ))}
-               </div>
-            </CardContent>
-          </Card>
-          
-          <div className="bg-primary p-10 rounded-3xl text-white relative overflow-hidden group shadow-2xl shadow-primary/30">
-             <div className="relative z-10">
-               <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 border border-white/10 group-hover:scale-110 transition-transform duration-300">
-                 <FileText className="w-7 h-7 text-white" />
-               </div>
-               <h4 className="text-2xl font-bold mb-3 tracking-tight">Generate Daily Intelligence</h4>
-               <p className="text-sm text-white/70 mb-8 leading-relaxed font-medium">Capture a high-fidelity report of all site activity for immediate executive review.</p>
-               <Button className="w-full bg-white text-primary hover:bg-slate-50 border-none font-bold h-12 rounded-2xl shadow-xl shadow-black/10 transition-all active:scale-95">Download PDF Summary</Button>
-             </div>
-             <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-[80px] group-hover:scale-125 transition-transform duration-500"></div>
+      {/* Middle Grid: Best Selling Products & Actions */}
+      <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md overflow-hidden">
+        <div className="p-4 sm:p-6 md:p-8 pb-2 sm:pb-3 flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Best Selling Products</h2>
+          <div className="flex items-center gap-1 sm:gap-2 text-slate-600">
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 text-slate-600 hover:bg-white/40 rounded-full">
+              <ArrowUpDown className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 text-slate-600 hover:bg-white/40 rounded-full">
+              <Filter className="w-4 h-4" />
+            </Button>
           </div>
         </div>
+
+        {/* Date Filters Row */}
+        <div className="px-4 sm:px-6 md:px-8 pb-4 sm:pb-6 pt-1 sm:pt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="Start Date..."
+                onFocus={(e) => e.target.type = 'date'}
+                onBlur={(e) => e.target.type = 'text'}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="pl-9 pr-2 h-10 rounded-full bg-white/60 border border-white/50 text-[11px] sm:text-xs text-slate-800 placeholder:text-slate-500 focus:bg-white/90 outline-none w-full sm:w-40 md:w-44 shadow-xs"
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input 
+                type="text" 
+                placeholder="End Date..."
+                onFocus={(e) => e.target.type = 'date'}
+                onBlur={(e) => e.target.type = 'text'}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="pl-9 pr-2 h-10 rounded-full bg-white/60 border border-white/50 text-[11px] sm:text-xs text-slate-800 placeholder:text-slate-500 focus:bg-white/90 outline-none w-full sm:w-40 md:w-44 shadow-xs"
+              />
+            </div>
+          </div>
+          <Button 
+            className="h-10 px-5 rounded-full bg-slate-900 hover:bg-black text-white text-xs font-bold gap-1.5 focus:scale-95 transition-transform w-full sm:w-auto justify-center"
+            onClick={() => { setStartDate(''); setEndDate(''); }}
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-none" />
+            All Time
+          </Button>
+        </div>
+
+        {/* Custom Pipe-Divided Data Table */}
+        <div className="px-4 sm:px-6 md:px-8 pb-4 sm:pb-8 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+          <div className="min-w-[640px]">
+            {topIssuedProducts.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 font-medium">No Data Available</div>
+            ) : (
+              <table className="w-full text-xs sm:text-sm">
+                <thead>
+                  <tr className="border-b border-slate-900/60 pb-3 text-left">
+                    <th className="py-2.5 font-bold text-slate-900 w-12 text-center">#</th>
+                    <th className="py-2.5 font-bold text-slate-900 pl-2"><span className="text-slate-400 font-light mr-3">|</span> Product</th>
+                    <th className="py-2.5 font-bold text-slate-900 pl-2"><span className="text-slate-400 font-light mr-3">|</span> SKU</th>
+                    <th className="py-2.5 font-bold text-slate-900 pl-2"><span className="text-slate-400 font-light mr-3">|</span> Total Issued</th>
+                    <th className="py-2.5 font-bold text-slate-900 pl-2"><span className="text-slate-400 font-light mr-3">|</span> Est. Value</th>
+                    <th className="py-2.5 font-bold text-slate-900 pl-2"><span className="text-slate-400 font-light mr-3">|</span> Category</th>
+                    <th className="py-2.5 font-bold text-slate-900 pl-2 w-16 text-center"><span className="text-slate-400 font-light mr-3">|</span> View</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topIssuedProducts.map((item, idx) => (
+                    <tr key={item.id} className="border-b border-slate-200/50 py-2.5 hover:bg-slate-50/20 transition-colors group">
+                      <td className="py-3 text-slate-700 font-mono text-center w-12">{idx + 1}</td>
+                      <td className="py-3 text-slate-900 font-bold pl-2">
+                        <span className="text-slate-350 font-light mr-3">|</span> 
+                        {item.name}
+                      </td>
+                      <td className="py-3 text-slate-700 font-medium pl-2">
+                        <span className="text-slate-350 font-light mr-3">|</span> 
+                        {item.sku}
+                      </td>
+                      <td className="py-3 text-slate-700 font-bold pl-2">
+                        <span className="text-slate-350 font-light mr-3">|</span> 
+                        {item.issuedQty}
+                      </td>
+                      <td className="py-3 text-slate-700 font-medium pl-2">
+                        <span className="text-slate-350 font-light mr-3">|</span> 
+                        {item.value}
+                      </td>
+                      <td className="py-3 text-slate-700 font-medium pl-2">
+                        <span className="text-slate-350 font-light mr-3">|</span> 
+                        {item.category}
+                      </td>
+                      <td className="py-3 pl-2 text-center w-16">
+                        <span className="text-slate-350 font-light mr-3">|</span> 
+                        <button 
+                          onClick={() => navigate('/products')}
+                          className="cursor-pointer inline-flex items-center justify-center p-1.5 rounded-full hover:bg-white text-slate-900 group-hover:bg-slate-900 group-hover:text-white transition-all shadow-xs"
+                        >
+                          <ArrowRight className="w-3.5 h-3.5 animate-none" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Bottom Section: Project Inventory & Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md p-5 sm:p-8">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Project Inventory</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-4 bg-white/40 rounded-xl border border-white/50">
+              <span className="text-sm font-bold text-slate-800">Total Materials Issued</span>
+              <span className="text-lg font-black font-mono text-slate-900">{totalIssued.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-white/40 rounded-xl border border-white/50">
+              <span className="text-sm font-bold text-slate-800">Total Materials Consumed</span>
+              <span className="text-lg font-black font-mono text-slate-900">{totalConsumed.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-white/40 rounded-xl border border-white/50">
+              <span className="text-sm font-bold text-slate-800">Total Materials Returned</span>
+              <span className="text-lg font-black font-mono text-slate-900">{totalReturned.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center p-4 bg-teal-600/10 rounded-xl border border-teal-500/20">
+              <span className="text-sm font-bold text-teal-800">Current Site Stock</span>
+              <span className="text-lg font-black font-mono text-teal-900">{totalSiteStock.toLocaleString()}</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="rounded-2xl sm:rounded-[2rem] border-none shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md p-5 sm:p-8">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Recent Activity</h2>
+          </div>
+
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-8 text-slate-500 font-medium">No Recent Activity</div>
+          ) : (
+            <div className="space-y-4 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/60 pr-2">
+              {recentActivity.map((activity, idx) => (
+                <div key={idx} className="flex gap-3 items-start border-b border-white/30 pb-3 last:border-0 last:pb-0">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 shadow-xs text-teal-600 font-bold text-[10px]">
+                    {activity.type.substring(0, 2)}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{activity.type.replace(/_/g, ' ')}</p>
+                    <p className="text-[11px] text-slate-600">{activity.productName} ({activity.quantity > 0 ? '+' : ''}{activity.quantity})</p>
+                    <p className="text-[9px] text-slate-400 font-mono mt-0.5">{new Date(activity.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );

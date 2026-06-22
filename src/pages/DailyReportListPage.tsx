@@ -49,6 +49,7 @@ export default function DailyReportListPage() {
   const [selectedProject, setSelectedProject] = useState<string>(projectIdParam || 'ALL');
 
   useEffect(() => {
+    console.log('reports in listPage:', reports);
     const unsubReports = ProgressService.subscribe(setReports);
     const unsubProjects = ProjectService.subscribe(setProjects);
     return () => {
@@ -57,20 +58,23 @@ export default function DailyReportListPage() {
     }
   }, []);
 
+  const getProjectName = useMemo(() => (idOrName: string) => {
+    const project = projects.find(p => p.id === idOrName || p.name === idOrName);
+    return project ? project.name : 'Unknown Project';
+  }, [projects]);
+
   const filteredReports = useMemo(() => {
     let filtered = reports;
 
     // Supervisor permission: only their reports
     if (profile?.role === UserRole.QUALITY_ENGINEER || (profile?.role !== UserRole.ADMIN && profile?.role !== UserRole.PROJECT_MANAGER)) {
-       // Assuming non-admins/managers only see their reports if they are supervisors
-       // But user said "Supervisors: Can view only their submitted reports"
        filtered = filtered.filter(r => r.supervisorId === profile?.uid);
     }
 
     if (selectedProject !== 'ALL') {
-      filtered = filtered.filter(r => r.projectId === selectedProject);
+      filtered = filtered.filter(r => r.projectId === selectedProject || r.projectName === selectedProject);
     } else if (projectIdParam) {
-      filtered = filtered.filter(r => r.projectId === projectIdParam);
+      filtered = filtered.filter(r => r.projectId === projectIdParam || r.projectName === projectIdParam);
     }
 
     if (statusFilter !== 'ALL') {
@@ -79,15 +83,17 @@ export default function DailyReportListPage() {
 
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.id.toLowerCase().includes(s) || 
-        r.supervisorName?.toLowerCase().includes(s) ||
-        r.projectName?.toLowerCase().includes(s)
-      );
+      filtered = filtered.filter(r => {
+        const pName = getProjectName(r.projectId) || r.projectName || 'General';
+        return r.id.toLowerCase().includes(s) || 
+          r.supervisorName?.toLowerCase().includes(s) ||
+          pName.toLowerCase().includes(s);
+      });
     }
 
-    return filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [reports, selectedProject, statusFilter, searchTerm, profile, projectIdParam]);
+    const sortedReports = filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return sortedReports;
+  }, [reports, selectedProject, statusFilter, searchTerm, profile, projectIdParam, getProjectName]);
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -126,51 +132,58 @@ export default function DailyReportListPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-none bg-slate-900 text-white shadow-xl overflow-hidden relative group">
-          <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-colors" />
+        <Card className="rounded-[2rem] border border-white/40 shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md group hover:scale-[1.01] hover:shadow-teal-950/5 transition-all duration-300 relative overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
               <div>
-                <p className="text-xs font-mono uppercase tracking-[0.2em] text-slate-400 mb-1">Total Reports</p>
-                <h3 className="text-4xl font-bold italic tracking-tighter">{stats.total}</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Total Reports</p>
+                <h3 className="text-3xl font-black text-slate-950 leading-none">{stats.total}</h3>
               </div>
-              <FileSpreadsheet className="w-8 h-8 text-blue-500" />
+              <div className="p-3 bg-white/90 border border-white/60 rounded-2xl shadow-xs text-blue-600">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-white shadow-xl overflow-hidden relative group border-t-4 border-t-blue-600">
+        <Card className="rounded-[2rem] border border-white/40 shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md group hover:scale-[1.01] hover:shadow-teal-950/5 transition-all duration-300 relative overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
               <div>
-                <p className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500 mb-1">Submitted Today</p>
-                <h3 className="text-4xl font-bold italic tracking-tighter text-slate-900">{stats.today}</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Submitted Today</p>
+                <h3 className="text-3xl font-black text-slate-950 leading-none">{stats.today}</h3>
               </div>
-              <Clock className="w-8 h-8 text-blue-600" />
+              <div className="p-3 bg-white/90 border border-white/60 rounded-2xl shadow-xs text-blue-500">
+                <Clock className="w-5 h-5" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-white shadow-xl overflow-hidden relative group border-t-4 border-t-orange-500">
+        <Card className="rounded-[2rem] border border-white/40 shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md group hover:scale-[1.01] hover:shadow-teal-950/5 transition-all duration-300 relative overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
               <div>
-                <p className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500 mb-1">Pending Review</p>
-                <h3 className="text-4xl font-bold italic tracking-tighter text-slate-900">{stats.pending}</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Pending Review</p>
+                <h3 className="text-3xl font-black text-slate-950 leading-none">{stats.pending}</h3>
               </div>
-              <AlertCircle className="w-8 h-8 text-orange-500" />
+              <div className="p-3 bg-white/90 border border-white/60 rounded-2xl shadow-xs text-orange-600">
+                <AlertCircle className="w-5 h-5" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-white shadow-xl overflow-hidden relative group border-t-4 border-t-green-500">
+        <Card className="rounded-[2rem] border border-white/40 shadow-xl shadow-teal-950/2 bg-white/50 backdrop-blur-md group hover:scale-[1.01] hover:shadow-teal-950/5 transition-all duration-300 relative overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
               <div>
-                <p className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500 mb-1">Approved Reports</p>
-                <h3 className="text-4xl font-bold italic tracking-tighter text-slate-900">{stats.approved}</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.15em] mb-1">Approved Reports</p>
+                <h3 className="text-3xl font-black text-slate-950 leading-none">{stats.approved}</h3>
               </div>
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
+              <div className="p-3 bg-white/90 border border-white/60 rounded-2xl shadow-xs text-emerald-600">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -192,13 +205,18 @@ export default function DailyReportListPage() {
             {!projectIdParam && (
                <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="All Projects" />
+                  <SelectValue placeholder="All Projects">
+                    {selectedProject === 'ALL' ? 'All Projects' : (getProjectName(selectedProject))}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Projects</SelectItem>
                   {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.name} {p.location ? `(${p.location})` : ''}</SelectItem>
                   ))}
+                  {selectedProject !== 'ALL' && !projects.find(p => p.id === selectedProject) && (
+                    <SelectItem value={selectedProject}>Unknown Project</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             )}
@@ -222,18 +240,76 @@ export default function DailyReportListPage() {
         </CardContent>
       </Card>
 
-      {/* Reports Table */}
-      <Card className="border-none shadow-xl bg-white overflow-hidden">
-        <Table>
+      {/* Reports Table - Desktop View, Cards on Mobile */}
+      <div className="block md:hidden space-y-4">
+        {filteredReports.length === 0 ? (
+          <Card className="border-none bg-white/60 p-8 text-center text-slate-400 italic rounded-2xl">
+            No reports found for the selected criteria.
+          </Card>
+        ) : (
+          filteredReports.map((report) => (
+            <Card 
+              key={report.id} 
+              className="border-none shadow-md shadow-slate-100 bg-white/65 backdrop-blur-md p-5 rounded-[2rem] flex flex-col gap-4 group relative overflow-hidden cursor-pointer hover:bg-white transition-colors"
+              onClick={() => navigate(`/daily-reports/${report.id}`)}
+              id={`report-card-${report.id}`}
+            >
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-xs font-black text-slate-450 uppercase tracking-wider">
+                  #{report.id.slice(-8).toUpperCase()}
+                </span>
+                {getStatusBadge(report.status)}
+              </div>
+              
+              <div>
+                <p className="font-extrabold text-slate-900 text-[15px] tracking-tight">{getProjectName(report.projectId) || report.projectName || 'Unknown Project'}</p>
+                <p className="text-xs text-slate-500 italic mt-0.5">Site: {report.siteInchargeName || 'Main'}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100 text-xs text-left">
+                <div>
+                  <span className="text-[10px] uppercase font-mono font-bold text-slate-400 block tracking-wider">Supervisor</span>
+                  <span className="font-bold text-slate-700">{report.supervisorName || 'System'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-mono font-bold text-slate-400 block tracking-wider">Date</span>
+                  <span className="font-extrabold text-slate-900">{format(new Date(report.date), 'dd MMM yyyy')}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <span className="font-mono text-[10px] text-slate-400 font-bold">
+                  Submitted: {format(new Date(report.createdAt), 'hh:mm a')}
+                </span>
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <Button variant="outline" size="icon" className="w-8 h-8 rounded-full border-slate-100 bg-white text-slate-600 hover:bg-blue-50 hover:text-blue-600 shadow-xs" onClick={() => navigate(`/daily-reports/${report.id}`)} title="View Report">
+                    <Eye className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="w-8 h-8 rounded-full border-slate-100 bg-white text-slate-600 hover:bg-slate-50 shadow-xs" onClick={() => navigate(`/daily-reports/${report.id}?download=true`)} title="Download PDF">
+                    <Download className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="outline" size="icon" className="w-8 h-8 rounded-full border-slate-100 bg-white text-slate-600 hover:bg-slate-50 shadow-xs" onClick={() => navigate(`/daily-reports/${report.id}?print=true`)} title="Print">
+                    <Printer className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <Card className="hidden md:block border-none shadow-xl shadow-teal-950/2 bg-white/60 backdrop-blur-md rounded-[2rem] overflow-hidden">
+        <div className="overflow-x-auto w-full">
+        <Table compact>
           <TableHeader className="bg-slate-50">
-            <TableRow className="text-[10px] font-mono uppercase tracking-widest italic">
-              <TableHead className="w-[120px]">Report ID</TableHead>
+            <TableRow className="text-[10px] font-mono uppercase tracking-widest italic border-b border-slate-200">
+              <TableHead className="w-[120px] pl-6">Report ID</TableHead>
               <TableHead>Project / Site</TableHead>
               <TableHead>Supervisor</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Submission</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="text-sm">
@@ -245,13 +321,13 @@ export default function DailyReportListPage() {
               </TableRow>
             ) : (
               filteredReports.map((report) => (
-                <TableRow key={report.id} className="hover:bg-slate-50 group transition-colors">
-                  <TableCell className="font-mono text-xs font-bold text-slate-400 group-hover:text-blue-600">
+                <TableRow key={report.id} className="hover:bg-slate-50/50 group transition-colors border-b border-slate-100">
+                  <TableCell className="font-mono text-xs font-bold text-slate-400 group-hover:text-blue-600 pl-6">
                     #{report.id.slice(-8).toUpperCase()}
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="font-bold text-slate-900">{report.projectName || 'General'}</div>
+                      <div className="font-bold text-slate-900">{getProjectName(report.projectId) || report.projectName || 'Unknown Project'}</div>
                       <div className="text-xs text-slate-500 italic uppercase tracking-tighter">Site: {report.siteInchargeName || 'Main'}</div>
                     </div>
                   </TableCell>
@@ -267,8 +343,8 @@ export default function DailyReportListPage() {
                   <TableCell>
                     {getStatusBadge(report.status)}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2 px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <TableCell className="text-right pr-6">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full hover:bg-blue-50 hover:text-blue-600" onClick={() => navigate(`/daily-reports/${report.id}`)} title="View Report">
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -285,6 +361,7 @@ export default function DailyReportListPage() {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
     </div>
   );

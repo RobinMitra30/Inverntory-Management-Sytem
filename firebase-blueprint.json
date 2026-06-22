@@ -21,9 +21,14 @@
       "properties": {
         "name": { "type": "string" },
         "category": { "type": "string" },
+        "subcategory": { "type": "string" },
         "unit": { "type": "string" },
         "minStockLevel": { "type": "number" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "sku": { "type": "string" },
+        "hsnCode": { "type": "string" },
+        "materialType": { "type": "string" },
+        "unitPrice": { "type": "number" }
       }
     },
     "Project": {
@@ -133,6 +138,40 @@
         "type": { "type": "string" },
         "quantity": { "type": "number" }
       }
+    },
+    "CatalogImport": {
+      "title": "CatalogImport",
+      "description": "Log of bulk product imports.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "fileName": { "type": "string" },
+        "totalRows": { "type": "number" },
+        "successCount": { "type": "number" },
+        "failedCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "COMPLETED", "FAILED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ProjectIssue": {
+      "title": "ProjectIssue",
+      "description": "Site issues and blockers representing roadblocks or safety concerns.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["MATERIAL", "LABOR", "WEATHER", "MACHINERY", "SAFETY", "OTHER"] },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "status": { "type": "string", "enum": ["OPEN", "RESOLVED"] },
+        "reportedBy": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "resolutionNotes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "resolvedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "title", "description", "category", "priority", "status", "reportedBy", "createdAt"]
     }
   },
   "firestore": {
@@ -146,6 +185,8 @@
     "/purchaseOrders/{poId}": { "schema": "PurchaseOrder", "description": "Purchase orders." },
     "/grns/{grnId}": { "schema": "GRN", "description": "Goods receipt notes." },
     "/stocks/{stockId}": { "schema": "Stock", "description": "Real-time stock levels." },
-    "/stockMovements/{movementId}": { "schema": "StockMovement", "description": "Audit trail for stock." }
+    "/stockMovements/{movementId}": { "schema": "StockMovement", "description": "Audit trail for stock." },
+    "/catalogImports/{importId}": { "schema": "CatalogImport", "description": "History of catalog imports." },
+    "/projectIssues/{issueId}": { "schema": "ProjectIssue", "description": "Project issues and blockages tracking." }
   }
 }

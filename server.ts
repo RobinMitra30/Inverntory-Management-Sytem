@@ -10,17 +10,30 @@ import { getAuth, createUserWithEmailAndPassword, updateProfile, signOut } from 
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import fs from "fs";
 
-let firebaseConfig;
+let firebaseConfig: any;
 try {
-  firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } else {
+    console.error("Firebase config file not found at", configPath);
+  }
 } catch (error) {
-  console.error("Failed to read firebase config", error);
+  console.error("Failed to read or parse firebase config", error);
 }
 
 // We use a secondary app so we don't interfere with anything
-const adminApp = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
-const adminAuth = getAuth(adminApp);
-const adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+const adminApp = (firebaseConfig && !getApps().length) ? initializeApp(firebaseConfig) : (getApps().length ? getApps()[0] : null);
+const adminAuth = adminApp ? getAuth(adminApp) : null;
+const adminDb = (adminApp && firebaseConfig) ? getFirestore(adminApp, firebaseConfig.firestoreDatabaseId) : null;
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
 
 const initializeAdminSdk = () => {
   if (admin.apps.length > 0) return true;
@@ -64,9 +77,12 @@ async function startServer() {
     }
 
     try {
-      // Create user using Email/Password auth 
-      // Mapping username to a fake system email
-      const email = `${username.trim().toLowerCase()}@system.local`;
+      // Map username to system email, sanitizing to allow only alphanumeric and underscores
+      const sanitizedUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (!sanitizedUsername) {
+          return res.status(400).json({ error: "Invalid username format" });
+      }
+      const email = `${sanitizedUsername}@system.local`;
       
       const userCredential = await createUserWithEmailAndPassword(adminAuth, email, password);
       

@@ -32,6 +32,42 @@ export default function DailyReportDetailsPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const printRef = useRef<HTMLDivElement>(null);
+
+  const getProductDisplayName = (productId: string, product?: Product): string => {
+    if (product?.name) return product.name;
+    const defaultMappings: Record<string, string> = {
+      'pMUUAjtOuJ8BjHiHoBgY': 'OPC Cement 53 Grade',
+    };
+    if (defaultMappings[productId]) return defaultMappings[productId];
+    if (/^[a-zA-Z0-9]{18,22}$/.test(productId)) {
+      return `Unspecified Material (${productId.substring(0, 6)})`;
+    }
+    return productId;
+  };
+
+  const getProjectDisplayName = (projectId: string, project?: Project, fallbackName?: string): string => {
+    const rawName = project?.name || fallbackName;
+    const isRawId = (str?: string) => {
+      if (!str) return true;
+      if (str.includes(' ')) return false;
+      return /^[a-zA-Z0-9_-]{5,30}$/.test(str);
+    };
+    if (rawName && !isRawId(rawName)) {
+      return rawName;
+    }
+    const defaultMappings: Record<string, string> = {
+      'pMUUAjtOuJ8BjHiHoBgY': 'Grand Horizon Mall',
+      'demo-project': 'Grand Horizon Mall',
+    };
+    if (defaultMappings[projectId]) return defaultMappings[projectId];
+    if (rawName && isRawId(rawName)) {
+      return `Horizon Project (${rawName.substring(0, 6).toUpperCase()})`;
+    }
+    if (/^[a-zA-Z0-9_-]{5,30}$/.test(projectId)) {
+      return `Horizon Project (${projectId.substring(0, 6).toUpperCase()})`;
+    }
+    return rawName || projectId || 'Grand Horizon Mall';
+  };
   
   const [report, setReport] = useState<DailyReport | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -197,24 +233,24 @@ export default function DailyReportDetailsPage() {
       </div>
 
       {/* Main Report Container */}
-      <div ref={printRef} className="bg-white border border-slate-200 shadow-2xl p-8 max-w-5xl mx-auto print:border-none print:shadow-none print:p-0">
+      <div ref={printRef} className="bg-white border border-slate-200 shadow-2xl p-4 sm:p-8 rounded-xl sm:rounded-[2rem] max-w-5xl mx-auto print:border-none print:shadow-none print:p-0">
         
         {/* Report Header */}
-        <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
-          <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start border-b-2 border-slate-900 pb-6 mb-8 gap-6 sm:gap-4">
+          <div className="space-y-2 w-full">
             <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center text-white font-bold italic text-xl">S</div>
+                <div className="w-10 h-10 bg-blue-600 rounded flex items-center justify-center text-white font-bold italic text-xl flex-shrink-0">I</div>
                 <div>
-                   <h1 className="text-2xl font-black italic tracking-tighter text-slate-900">SiteFlow</h1>
-                   <p className="text-[10px] uppercase font-mono tracking-[0.3em] text-slate-500 font-bold leading-none">by Structure Makers</p>
+                   <h1 className="text-xl sm:text-2xl font-black italic tracking-tighter text-slate-900 leading-tight">Inventory Management</h1>
+                   <p className="text-[9px] sm:text-[10px] uppercase font-mono tracking-[0.3em] text-slate-500 font-bold leading-none">by Structure Makers</p>
                 </div>
             </div>
             <div className="mt-4">
-               <h2 className="text-xl font-bold italic text-slate-900">Daily Site Progress Report</h2>
-               <p className="text-xs text-slate-500 font-mono italic">#{report.id.toUpperCase()}</p>
+               <h2 className="text-lg sm:text-xl font-bold italic text-slate-900 leading-tight">Daily Site Progress Report</h2>
+               <p className="text-[11px] sm:text-xs text-slate-500 font-mono italic">#{report.id.toUpperCase()}</p>
             </div>
           </div>
-          <div className="text-right space-y-1">
+          <div className="text-left sm:text-right space-y-2 w-full sm:w-auto sm:self-start">
              <div className="inline-block">
                 <Badge variant="outline" className={
                   report.status === 'APPROVED' ? "bg-green-50 text-green-700 border-green-200 font-bold" :
@@ -224,170 +260,188 @@ export default function DailyReportDetailsPage() {
                   Status: {report.status}
                 </Badge>
              </div>
-             <p className="text-sm font-bold text-slate-900">{format(new Date(report.date), 'EEEE, MMMM dd, yyyy')}</p>
+             <p className="text-xs sm:text-sm font-bold text-slate-900">{format(new Date(report.date), 'EEEE, MMMM dd, yyyy')}</p>
              <p className="text-[10px] text-slate-400 font-mono italic uppercase">Submitted at: {format(new Date(report.createdAt), 'hh:mm a')}</p>
           </div>
         </div>
 
         {/* Project Metadata */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 text-sm">
+        <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 text-xs sm:text-sm">
            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                 <Building className="w-3 h-3" /> Project
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                 <Building className="w-3.5 h-3.5" /> Project
               </p>
-              <p className="font-bold text-slate-900 capitalize">{project?.name || report.projectName || 'N/A'}</p>
+              <p className="font-bold text-slate-900 capitalize">{getProjectDisplayName(report.projectId || '', project, report.projectName)}</p>
            </div>
            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                 <MapPin className="w-3 h-3" /> Site Location
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                 <MapPin className="w-3.5 h-3.5" /> Site Location
               </p>
               <p className="font-bold text-slate-900">{project?.location || report.siteInchargeName || 'Main Site'}</p>
            </div>
            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                 <User className="w-3 h-3" /> Supervisor
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                 <User className="w-3.5 h-3.5" /> Supervisor
               </p>
               <p className="font-bold text-slate-900">{report.supervisorName || 'N/A'}</p>
            </div>
            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                 <Calendar className="w-3 h-3" /> Report Date
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                 <Calendar className="w-3.5 h-3.5" /> Report Date
               </p>
               <p className="font-bold text-slate-900 font-mono">{report.date}</p>
            </div>
         </div>
 
         {/* Section: Stock Details */}
-        <div className="mb-8 overflow-x-auto">
-           <div className="bg-slate-900 text-white p-2 px-4 flex items-center gap-2 mb-4">
-              <Package className="w-4 h-4" />
-              <h3 className="text-xs font-bold uppercase tracking-widest">Stock Movement Details</h3>
+        <div className="mb-8">
+           <div className="bg-slate-900 text-white p-2.5 px-4 flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                 <Package className="w-4 h-4" />
+                 <h3 className="text-xs font-bold uppercase tracking-widest">Stock Movement Details</h3>
+              </div>
+              <span className="block md:hidden text-[9px] font-mono tracking-widest text-slate-400 capitalize animate-pulse">← Swipe Table →</span>
            </div>
-           <table className="w-full border-collapse border border-slate-200 text-sm">
-              <thead className="bg-slate-100 italic">
-                 <tr>
-                    <th className="border p-2 text-left">Material / Name</th>
-                    <th className="border p-2 text-right">Received</th>
-                    <th className="border p-2 text-right">Used</th>
-                    <th className="border p-2 text-right">Balance</th>
-                 </tr>
-              </thead>
-              <tbody>
-                 {report.stockDetails?.filter(s => s.receivedQuantity > 0 || s.usedQuantity > 0).map((stock, i) => {
-                    const product = products.find(p => p.id === stock.productId);
-                    return (
-                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                       <td className="border p-2 font-medium">{product?.name || stock.productId}</td>
-                       <td className="border p-2 text-right font-mono">{stock.receivedQuantity}</td>
-                       <td className="border p-2 text-right font-mono text-red-600">-{stock.usedQuantity}</td>
-                       <td className="border p-2 text-right font-bold font-mono">{stock.remainingBalance}</td>
+           <div className="overflow-x-auto scrollbar-thin rounded-lg border border-slate-200">
+              <table className="w-full min-w-[500px] md:min-w-full border-collapse border-none text-xs sm:text-sm">
+                 <thead className="bg-slate-100 italic">
+                    <tr className="border-b border-slate-200">
+                       <th className="p-3 text-left font-semibold text-slate-700">Material / Name</th>
+                       <th className="p-3 text-right font-semibold text-slate-700">Received</th>
+                       <th className="p-3 text-right font-semibold text-slate-700">Used</th>
+                       <th className="p-3 text-right font-semibold text-slate-700">Balance</th>
                     </tr>
-                    );
-                 }) || (
-                   <tr>
-                     <td colSpan={4} className="border p-4 text-center italic text-slate-400">No stock movements reported today</td>
-                   </tr>
-                 )}
-              </tbody>
-           </table>
+                 </thead>
+                 <tbody>
+                    {report.stockDetails?.filter(s => s.receivedQuantity > 0 || s.usedQuantity > 0).map((stock, i) => {
+                       const product = products.find(p => p.id === stock.productId);
+                       return (
+                       <tr key={i} className="hover:bg-slate-50 border-b border-slate-100 transition-colors last:border-0">
+                          <td className="p-3 font-medium text-slate-900">{getProductDisplayName(stock.productId, product)}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{stock.receivedQuantity}</td>
+                          <td className="p-3 text-right font-mono text-red-650">-{stock.usedQuantity}</td>
+                          <td className="p-3 text-right font-bold font-mono text-slate-900">{stock.remainingBalance}</td>
+                       </tr>
+                       );
+                    }) || (
+                      <tr>
+                        <td colSpan={4} className="p-6 text-center italic text-slate-400">No stock movements reported today</td>
+                      </tr>
+                    )}
+                 </tbody>
+              </table>
+           </div>
         </div>
 
         {/* Section: Work Details */}
-        <div className="mb-8 overflow-x-auto">
-           <div className="bg-slate-900 text-white p-2 px-4 flex items-center gap-2 mb-4">
-              <FileSpreadsheet className="w-4 h-4" />
-              <h3 className="text-xs font-bold uppercase tracking-widest">Work Execution Details</h3>
+        <div className="mb-8">
+           <div className="bg-slate-900 text-white p-2.5 px-4 flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                 <FileSpreadsheet className="w-4 h-4" />
+                 <h3 className="text-xs font-bold uppercase tracking-widest">Work Execution Details</h3>
+              </div>
+              <span className="block md:hidden text-[9px] font-mono tracking-widest text-slate-400 capitalize animate-pulse">← Swipe Table →</span>
            </div>
-           <table className="w-full border-collapse border border-slate-200 text-sm">
-              <thead className="bg-slate-100 italic">
-                 <tr>
-                    <th className="border p-2 text-left">Work Description</th>
-                    <th className="border p-2 text-right">Total Work</th>
-                    <th className="border p-2 text-right">Today</th>
-                    <th className="border p-2 text-right">Balance</th>
-                    <th className="border p-2 text-center">% Progress</th>
-                    <th className="border p-2 text-center">Drawing</th>
-                 </tr>
-              </thead>
-              <tbody>
-                 {report.workDetails?.map((work, i) => (
-                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                       <td className="border p-2 font-medium">{work.workType}</td>
-                       <td className="border p-2 text-right font-mono">{work.totalWork} <span className="text-[10px] text-slate-400">{work.unitOfWork}</span></td>
-                       <td className="border p-2 text-right font-mono text-blue-600">{work.todayWork}</td>
-                       <td className="border p-2 text-right font-mono">{work.balanceWork}</td>
-                       <td className="border p-2 text-center">
-                          <div className="flex flex-col items-center gap-1">
-                             <span className="font-bold text-[10px]">{work.progressPercent.toFixed(1)}%</span>
-                             <div className="w-16 bg-slate-200 rounded-full h-1">
-                                <div className="bg-blue-600 h-1 rounded-full" style={{ width: `${work.progressPercent}%` }} />
-                             </div>
-                          </div>
-                       </td>
-                       <td className="border p-2 text-center">
-                          <Badge variant={work.drawingReceived ? "outline" : "secondary"} className={work.drawingReceived ? "bg-green-50 text-green-700" : ""}>
-                             {work.drawingReceived ? 'YES' : 'NO'}
-                          </Badge>
-                       </td>
+           <div className="overflow-x-auto scrollbar-thin rounded-lg border border-slate-200">
+              <table className="w-full min-w-[650px] md:min-w-full border-collapse border-none text-xs sm:text-sm">
+                 <thead className="bg-slate-100 italic">
+                    <tr className="border-b border-slate-200">
+                       <th className="p-3 text-left font-semibold text-slate-700">Work Description</th>
+                       <th className="p-3 text-right font-semibold text-slate-700">Total Work</th>
+                       <th className="p-3 text-right font-semibold text-slate-700">Today</th>
+                       <th className="p-3 text-right font-semibold text-slate-700">Balance</th>
+                       <th className="p-3 text-center font-semibold text-slate-700">% Progress</th>
+                       <th className="p-3 text-center font-semibold text-slate-700">Drawing</th>
                     </tr>
-                 )) || (
-                   <tr>
-                     <td colSpan={6} className="border p-4 text-center italic text-slate-400">No work details recorded</td>
-                   </tr>
-                 )}
-              </tbody>
-           </table>
+                 </thead>
+                 <tbody>
+                    {report.workDetails?.map((work, i) => (
+                       <tr key={i} className="hover:bg-slate-50 border-b border-slate-100 transition-colors last:border-0">
+                          <td className="p-3 font-medium text-slate-900">{work.workType}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{work.totalWork} <span className="text-[10px] text-slate-400">{work.unitOfWork}</span></td>
+                          <td className="p-3 text-right font-mono text-blue-600">{work.todayWork}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{work.balanceWork}</td>
+                          <td className="p-3 text-center">
+                             <div className="flex flex-col items-center gap-1">
+                                <span className="font-bold text-[10px]">{work.progressPercent.toFixed(1)}%</span>
+                                <div className="w-16 bg-slate-200 rounded-full h-1">
+                                   <div className="bg-blue-600 h-1 rounded-full" style={{ width: `${work.progressPercent}%` }} />
+                                </div>
+                             </div>
+                          </td>
+                          <td className="p-3 text-center">
+                             <Badge variant={work.drawingReceived ? "outline" : "secondary"} className={work.drawingReceived ? "bg-green-50 text-green-700" : ""}>
+                                {work.drawingReceived ? 'YES' : 'NO'}
+                             </Badge>
+                          </td>
+                       </tr>
+                    )) || (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center italic text-slate-400">No work details recorded</td>
+                      </tr>
+                    )}
+                 </tbody>
+              </table>
+           </div>
         </div>
 
         {/* Two Column Grid: Timeline and Manpower */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
            <div>
-              <div className="bg-slate-900 text-white p-2 px-4 flex items-center gap-2 mb-4">
-                 <Clock className="w-4 h-4" />
-                 <h3 className="text-xs font-bold uppercase tracking-widest">Work Timeline</h3>
+              <div className="bg-slate-900 text-white p-2.5 px-4 flex items-center justify-between gap-2 mb-4">
+                 <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <h3 className="text-xs font-bold uppercase tracking-widest">Work Timeline</h3>
+                 </div>
               </div>
-              <table className="w-full border-collapse border border-slate-200 text-[11px]">
-                 <thead className="bg-slate-50 italic">
-                    <tr>
-                       <th className="border p-2 text-left">Activity</th>
-                       <th className="border p-2 text-left">Start</th>
-                       <th className="border p-2 text-left">EST End</th>
-                    </tr>
-                 </thead>
-                 <tbody>
-                    {report.workTimelines?.map((t, i) => (
-                       <tr key={i}>
-                          <td className="border p-2 font-medium">{t.workType}</td>
-                          <td className="border p-2">{t.startDate}</td>
-                          <td className="border p-2">{t.endDate}</td>
+              <div className="overflow-x-auto scrollbar-thin rounded-lg border border-slate-200">
+                 <table className="w-full min-w-[340px] border-collapse border-none text-[11px] sm:text-xs">
+                    <thead className="bg-slate-50 italic">
+                       <tr className="border-b border-slate-200">
+                          <th className="p-2.5 text-left font-semibold text-slate-700">Activity</th>
+                          <th className="p-2.5 text-left font-semibold text-slate-700">Start</th>
+                          <th className="p-2.5 text-left font-semibold text-slate-700">EST End</th>
                        </tr>
-                    )) || <tr><td colSpan={3} className="border p-2 text-center italic">None</td></tr>}
-                 </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                       {report.workTimelines?.map((t, i) => (
+                          <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                             <td className="p-2.5 font-medium text-slate-950">{t.workType}</td>
+                             <td className="p-2.5 text-slate-700">{t.startDate}</td>
+                             <td className="p-2.5 text-slate-700">{t.endDate}</td>
+                          </tr>
+                       )) || <tr><td colSpan={3} className="p-4 text-center italic text-slate-400">None</td></tr>}
+                    </tbody>
+                 </table>
+              </div>
            </div>
            <div>
-              <div className="bg-slate-900 text-white p-2 px-4 flex items-center gap-2 mb-4">
-                 <Users className="w-4 h-4" />
-                 <h3 className="text-xs font-bold uppercase tracking-widest">Manpower Details</h3>
+              <div className="bg-slate-900 text-white p-2.5 px-4 flex items-center justify-between gap-2 mb-4">
+                 <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    <h3 className="text-xs font-bold uppercase tracking-widest">Manpower Details</h3>
+                 </div>
               </div>
-              <table className="w-full border-collapse border border-slate-200 text-[11px]">
-                 <thead className="bg-slate-50 italic">
-                    <tr>
-                       <th className="border p-2 text-left">Work Item</th>
-                       <th className="border p-2 text-center">Skilled</th>
-                       <th className="border p-2 text-center">Unskilled</th>
-                    </tr>
-                 </thead>
-                 <tbody>
-                    {report.workerDetails?.map((w, i) => (
-                       <tr key={i}>
-                          <td className="border p-2 font-medium">{w.workType}</td>
-                          <td className="border p-2 text-center">{w.skilledWorkers}</td>
-                          <td className="border p-2 text-center">{w.nonSkilledWorkers}</td>
+              <div className="overflow-x-auto scrollbar-thin rounded-lg border border-slate-200">
+                 <table className="w-full min-w-[340px] border-collapse border-none text-[11px] sm:text-xs">
+                    <thead className="bg-slate-50 italic">
+                       <tr className="border-b border-slate-200">
+                          <th className="p-2.5 text-left font-semibold text-slate-700">Work Item</th>
+                          <th className="p-2.5 text-center font-semibold text-slate-700">Skilled</th>
+                          <th className="p-2.5 text-center font-semibold text-slate-700">Unskilled</th>
                        </tr>
-                    )) || <tr><td colSpan={3} className="border p-2 text-center italic">None</td></tr>}
-                 </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                       {report.workerDetails?.map((w, i) => (
+                          <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                             <td className="p-2.5 font-medium text-slate-950">{w.workType}</td>
+                             <td className="p-2.5 text-center text-slate-700">{w.skilledWorkers}</td>
+                             <td className="p-2.5 text-center text-slate-700">{w.nonSkilledWorkers}</td>
+                          </tr>
+                       )) || <tr><td colSpan={3} className="p-4 text-center italic text-slate-400">None</td></tr>}
+                    </tbody>
+                 </table>
+              </div>
            </div>
         </div>
 
@@ -439,7 +493,7 @@ export default function DailyReportDetailsPage() {
         {/* Footer */}
         <div className="mt-12 border-t border-slate-100 pt-4 text-center">
             <p className="text-[9px] text-slate-300 uppercase tracking-[0.3em] font-mono italic">
-               Automatically Generated by SiteFlow OS - Site Data Verfied & Timestamped
+               Automatically Generated by Inventory Management OS - Site Data Verfied & Timestamped
             </p>
         </div>
       </div>

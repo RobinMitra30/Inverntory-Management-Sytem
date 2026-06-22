@@ -1,6 +1,6 @@
 {
-  "name": "SiteFlow",
+  "name": "Inventory Management",
   "description": "Comprehensive construction site management platform for tracking progress, attendance, material inventory, and project financials by Structure Makers.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["INVENTORY_MANAGEMENT", "PURCHASE_WORKFLOW", "PROJECT_TRACKING", "REAL_TIME_ANALYTICS"]
+  "majorCapabilities": ["INVENTORY_MANAGEMENT", "PURCHASE_WORKFLOW", "PROJECT_TRACKING", "REAL_TIME_ANALYTICS", "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

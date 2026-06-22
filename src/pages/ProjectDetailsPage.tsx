@@ -310,16 +310,16 @@ export default function ProjectDetailsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-sm shadow-slate-200/50">
-            <CardContent className="p-8">
-              <div className="flex justify-between items-start mb-8">
+          <Card className="bg-white/50 backdrop-blur-md border border-white/40 rounded-2xl sm:rounded-[2rem] shadow-xl shadow-teal-950/2 hover:scale-[1.01] transition-all duration-300 relative overflow-hidden group">
+            <CardContent className="p-4 sm:p-8">
+              <div className="flex justify-between items-start mb-6 sm:mb-8">
                 <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Project Status</h2>
                 <Button variant="ghost" size="icon" className="text-slate-400 h-8 w-8">
                   <Filter className="w-4 h-4" />
                 </Button>
               </div>
 
-              <div className="flex flex-col md:flex-row items-center gap-12">
+              <div className="flex flex-col md:flex-row items-center gap-6 md:gap-12">
                 {/* Gauge */}
                 <div className="relative w-48 h-24 overflow-hidden">
                   <svg className="w-48 h-48 absolute top-0">
@@ -354,7 +354,7 @@ export default function ProjectDetailsPage() {
                 </div>
 
                 <div className="flex-1 space-y-6 w-full">
-                  <div className="grid grid-cols-1 gap-4 divide-y divide-slate-50">
+                  <div className="grid grid-cols-1 gap-4 divide-y divide-slate-100">
                     <div className="flex items-center justify-between group">
                       <div>
                         <div className="flex items-center gap-1.5 cursor-help">
@@ -379,52 +379,52 @@ export default function ProjectDetailsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-0 mt-12 border-t border-slate-50">
-                <div className="p-6 border-r border-slate-50">
-                   <div className="flex items-center gap-1.5 mb-4">
-                      <div className="w-2 h-2 rounded-full bg-slate-300" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 mt-6 sm:mt-12 border-t border-slate-100">
+                <div className="p-4 sm:p-6 border-b sm:border-b-0 sm:border-r border-slate-100">
+                   <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
+                      <div className="w-2 h-2 rounded-full bg-slate-400" />
                       <span className="text-xs font-bold text-slate-800">Not Started</span>
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Total</p>
-                        <p className="text-xl font-black text-slate-900 leading-none">{notStartedCount}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
+                        <p className="text-lg sm:text-xl font-black text-slate-900 leading-none">{notStartedCount}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-red-300 uppercase tracking-tighter">Delayed</p>
-                        <p className="text-xl font-black text-red-500 leading-none">0</p>
+                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Delayed</p>
+                        <p className="text-lg sm:text-xl font-black text-red-500 leading-none">0</p>
                       </div>
                    </div>
                 </div>
-                <div className="p-6 border-r border-slate-50">
-                   <div className="flex items-center gap-1.5 mb-4">
+                <div className="p-4 sm:p-6 border-b sm:border-b-0 sm:border-r border-slate-100">
+                   <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
                       <div className="w-2 h-2 rounded-full bg-orange-400" />
                       <span className="text-xs font-bold text-slate-800">In Progress</span>
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Total</p>
-                        <p className="text-xl font-black text-slate-900 leading-none">{inProgressCount}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
+                        <p className="text-lg sm:text-xl font-black text-slate-900 leading-none">{inProgressCount}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-red-300 uppercase tracking-tighter">Delayed</p>
-                        <p className="text-xl font-black text-red-500 leading-none">0</p>
+                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Delayed</p>
+                        <p className="text-lg sm:text-xl font-black text-red-500 leading-none">0</p>
                       </div>
                    </div>
                 </div>
-                <div className="p-6">
-                   <div className="flex items-center gap-1.5 mb-4">
+                <div className="p-4 sm:p-6">
+                   <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
                       <div className="w-2 h-2 rounded-full bg-green-500" />
                       <span className="text-xs font-bold text-slate-800">Completed</span>
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Total</p>
-                        <p className="text-xl font-black text-slate-900 leading-none">{completedCount}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
+                        <p className="text-lg sm:text-xl font-black text-slate-900 leading-none">{completedCount}</p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-red-300 uppercase tracking-tighter">Delayed</p>
-                        <p className="text-xl font-black text-red-500 leading-none">0</p>
+                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Delayed</p>
+                        <p className="text-lg sm:text-xl font-black text-red-500 leading-none">0</p>
                       </div>
                    </div>
                 </div>
@@ -433,10 +433,10 @@ export default function ProjectDetailsPage() {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <Card className="border-none shadow-sm shadow-slate-200/50">
+             <Card className="bg-white/50 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-xl shadow-teal-950/2 hover:scale-[1.01] transition-all duration-300 relative overflow-hidden group">
                 <CardContent className="p-6">
                    <div className="flex justify-between items-center mb-12">
-                      <h3 className="text-sm font-bold text-slate-700">Deadline Tasks</h3>
+                      <h3 className="text-sm font-bold text-slate-800">Deadline Tasks</h3>
                       <Filter className="w-3.5 h-3.5 text-slate-400" />
                    </div>
                    <div className="py-12 flex flex-col items-center justify-center text-slate-400">
@@ -446,10 +446,10 @@ export default function ProjectDetailsPage() {
                    </div>
                 </CardContent>
              </Card>
-             <Card className="border-none shadow-sm shadow-slate-200/50">
+             <Card className="bg-white/50 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-xl shadow-teal-950/2 hover:scale-[1.01] transition-all duration-300 relative overflow-hidden group">
                 <CardContent className="p-6">
                    <div className="flex justify-between items-center mb-12">
-                      <h3 className="text-sm font-bold text-slate-700">Schedule Tasks</h3>
+                      <h3 className="text-sm font-bold text-slate-800">Schedule Tasks</h3>
                       <Filter className="w-3.5 h-3.5 text-slate-400" />
                    </div>
                    <div className="py-12 flex flex-col items-center justify-center text-slate-400">
@@ -463,7 +463,7 @@ export default function ProjectDetailsPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="border-none shadow-sm shadow-slate-200/50 min-h-[500px] flex flex-col">
+          <Card className="bg-white/50 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-xl shadow-teal-950/2 hover:scale-[1.01] transition-all duration-300 relative overflow-hidden group min-h-[500px] flex flex-col">
             <CardContent className="p-6 flex flex-col h-full">
                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold text-slate-800">Recent progress updates</h3>

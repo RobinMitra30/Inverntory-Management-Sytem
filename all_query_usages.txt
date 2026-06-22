@@ -1,0 +1,32 @@
+src/pages/RequisitionPage.tsx:import { collection, addDoc, doc, query, where, onSnapshot } from 'firebase/firestore';
+src/pages/RequisitionPage.tsx:    const qStocks = query(collection(db, 'stocks'), where('projectId', '==', MAIN_WAREHOUSE_PROJECT_ID));
+src/pages/RequisitionPage.tsx:            const { getDocs, query, where, collection: fsColl } = await import('firebase/firestore');
+src/pages/RequisitionPage.tsx:            const q = query(usersRef, where('role', '==', 'ADMIN'));
+src/pages/RequisitionPage.tsx:            const querySnapshot = await getDocs(q);
+src/pages/RequisitionPage.tsx:            const notificationPromises = querySnapshot.docs.map(uDoc => {
+src/pages/MaterialRequirementDetailsPage.tsx:import { doc, getDoc, updateDoc, addDoc, collection, writeBatch, query, where, getDocs } from 'firebase/firestore';
+src/pages/MaterialRequirementDetailsPage.tsx:        // Split productIds into chunks of 10 for Firestore 'in' query limits
+src/pages/MaterialRequirementDetailsPage.tsx:            getDocs(query(
+src/pages/MaterialRequirementsPage.tsx:import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs, where } from 'firebase/firestore';
+src/pages/MaterialRequirementsPage.tsx:    const q = query(collection(db, 'materialRequirements'), orderBy('createdAt', 'desc'));
+src/pages/MaterialRequirementsPage.tsx:        const querySnapshot = await getDocs(collection(db, 'projects'));
+src/pages/MaterialRequirementsPage.tsx:        querySnapshot.forEach((doc) => prjs.push({ id: doc.id, ...doc.data() } as Project));
+src/pages/MaterialRequirementsPage.tsx:        const querySnapshot = await getDocs(collection(db, 'products'));
+src/pages/MaterialRequirementsPage.tsx:        querySnapshot.forEach((doc) => prods.push({ id: doc.id, ...doc.data() } as Product));
+src/pages/MaterialRequirementsPage.tsx:      const qStocks = query(collection(db, 'stocks'), where('projectId', '==', MAIN_WAREHOUSE_PROJECT_ID));
+src/pages/MaterialRequirementsPage.tsx:      const stockQuery = query(
+src/pages/AdminPage.tsx:import { collection, addDoc, doc, setDoc, updateDoc, query, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
+src/pages/AdminPage.tsx:    const q = query(collection(db, 'demoRequests'), orderBy('createdAt', 'desc'));
+src/pages/AdminPage.tsx:      const { getDocs, query, where } = await import('firebase/firestore');
+src/pages/AdminPage.tsx:        const q = query(collection(db, 'products'), where('sku', '==', p.sku));
+src/pages/DailyReportDetailsPage.tsx:          // Clear query params
+src/pages/PurchaseRequisitionDetailsPage.tsx:  query, 
+src/pages/PurchaseRequisitionDetailsPage.tsx:    const qStocks = query(collection(db, 'stocks'), where('projectId', '==', MAIN_WAREHOUSE_PROJECT_ID));
+src/components/layout/Navbar.tsx:import { collection, query, where, onSnapshot } from 'firebase/firestore';
+src/components/layout/Navbar.tsx:    const q = query(
+src/components/DataSeeder.tsx:                const querySnapshot = await import('firebase/firestore').then(m => m.getDocs(collRef));
+src/components/DataSeeder.tsx:                for (let i = 0; i < querySnapshot.docs.length; i++) {
+src/components/DataSeeder.tsx:                    const docId = querySnapshot.docs[i].id;
+src/services/store.ts:  query, 
+src/services/store.ts:            getDocs(query(
+src/services/store.ts:            getDocs(query(

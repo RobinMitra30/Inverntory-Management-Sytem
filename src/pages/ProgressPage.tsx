@@ -80,7 +80,7 @@ export default function ProgressPage() {
               <DialogTitle>New Daily Progress Report</DialogTitle>
             </DialogHeader>
             <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <Label>Date</Label>
                     <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
@@ -110,7 +110,7 @@ export default function ProgressPage() {
                  <Textarea placeholder="Any obstacles encountered?" className="h-16 resize-none" />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  {/* Photo upload features disabled as requested
                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-slate-50 cursor-pointer group transition-colors">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:text-blue-500 group-hover:bg-blue-50 transition-colors">
@@ -187,9 +187,9 @@ export default function ProgressPage() {
                          <CardFooter className="p-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
                             <div className="flex items-center gap-2">
                                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px]">
-                                  {report.submittedBy.charAt(0)}
+                                  {report.submittedBy?.charAt(0) || '?'}
                                </div>
-                               <span className="text-xs font-medium text-slate-600">Submitted by {report.submittedBy}</span>
+                               <span className="text-xs font-medium text-slate-600">Submitted by {report.submittedBy || 'Unknown'}</span>
                             </div>
                             <div className="flex items-center gap-3">
                                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-slate-500">
